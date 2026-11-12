@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0f1115">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg">
+<title>Chalchitra · Video Editor</title>
+<style>
+:root{--bg:#0f1115;--pn:#181b22;--pn2:#222631;--ln:#2d3240;--tx:#eef0f4;--mu:#8b92a3;--ac:#ff5a5f;--ac2:#ffb347}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;background:var(--bg);color:var(--tx);font:14px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden}
+body{display:flex;flex-direction:column;height:100dvh;padding-top:env(safe-area-inset-top)}
+header{display:flex;align-items:center;gap:8px;padding:8px 12px}
+header h1{font-size:17px;flex:1;letter-spacing:.3px}
+header h1 b{color:var(--ac)}
+.btn{background:var(--pn2);color:var(--tx);border:1px solid var(--ln);border-radius:10px;padding:8px 12px;font:inherit;font-weight:600;cursor:pointer;white-space:nowrap;text-decoration:none;display:inline-block}
+.btn.pri{background:var(--ac);border-color:var(--ac);color:#fff}
+.btn.sm{padding:6px 10px;font-size:13px}
+.btn.rec{background:#c62828;border-color:#c62828;color:#fff;animation:pl 1s infinite}
+@keyframes pl{50%{opacity:.6}}
+#stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;padding:4px 12px}
+#cv{max-width:100%;max-height:100%;border-radius:8px;background:#000;touch-action:none;box-shadow:0 4px 24px #0008}
+#ctrl{display:flex;align-items:center;gap:10px;padding:6px 12px}
+#playb{width:40px;height:40px;border-radius:50%;border:0;background:var(--tx);color:#000;font-size:15px;flex:none;font-weight:700}
+#time{font-variant-numeric:tabular-nums;color:var(--mu);font-size:12px;min-width:92px;text-align:right}
+input[type=range]{flex:1;accent-color:var(--ac);min-width:0}
+#tl{display:flex;gap:4px;overflow-x:auto;padding:6px 12px 4px;min-height:68px;align-items:center;scrollbar-width:none}
+.clip{flex:none;height:56px;border-radius:8px;background:#333 center/cover;position:relative;border:2px solid transparent;cursor:pointer}
+.clip.sel{border-color:var(--ac2)}
+.clip.cur{box-shadow:0 0 0 3px #fff6 inset}
+.clip span{position:absolute;left:3px;bottom:3px;background:#000b;font-size:10px;padding:0 4px;border-radius:4px;white-space:nowrap}
+.clip em{position:absolute;right:-7px;top:50%;transform:translateY(-50%);z-index:1;font-style:normal;font-size:10px;background:var(--pn2);border:1px solid var(--ln);border-radius:50%;width:16px;height:16px;display:flex;align-items:center;justify-content:center}
+.addc{flex:none;width:56px;height:56px;border-radius:8px;border:2px dashed var(--ln);background:none;color:var(--mu);font-size:26px}
+#txtrow{display:flex;gap:4px;overflow-x:auto;padding:0 12px 6px;scrollbar-width:none;min-height:6px}
+.tchip{flex:none;font-size:11px;background:#3a2f55;border-radius:6px;padding:2px 8px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+.tchip.sel{outline:2px solid var(--ac2)}
+.tchip.au{background:#1f4a3d}
+#panel{height:34vh;max-height:320px;overflow-y:auto;background:var(--pn);border-top:1px solid var(--ln);padding:12px}
+#tabs{display:flex;background:var(--pn);border-top:1px solid var(--ln);padding-bottom:env(safe-area-inset-bottom)}
+#tabs button{flex:1;min-width:0;background:none;border:0;color:var(--mu);font:inherit;font-size:9.5px;padding:7px 0 8px;display:flex;flex-direction:column;align-items:center;gap:2px}
+#tabs button i{font-style:normal;font-size:18px}
+#tabs button.on{color:var(--tx)}
+#tabs button.on i{filter:drop-shadow(0 0 6px var(--ac))}
+.row{display:flex;align-items:center;gap:10px;margin:8px 0}
+.row>span{width:84px;color:var(--mu);font-size:12px;flex:none}
+.row output{width:50px;text-align:right;font-size:12px;font-variant-numeric:tabular-nums}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 10px;align-items:center}
+.chip{background:var(--pn2);border:1px solid var(--ln);color:var(--tx);border-radius:999px;padding:6px 12px;font:inherit;font-size:13px}
+.chip.on{background:var(--ac);border-color:var(--ac)}
+h3{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--mu);margin:12px 0 4px}
+h3:first-child{margin-top:0}
+.hint{color:var(--mu);font-size:13px;padding:6px 0}
+textarea{width:100%;background:var(--pn2);color:var(--tx);border:1px solid var(--ln);border-radius:8px;padding:8px;font:inherit}
+input[type=color]{width:40px;height:30px;border:0;background:none;padding:0}
+input[type=checkbox]{width:20px;height:20px;accent-color:var(--ac)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px}
+.fl{border-radius:10px;overflow:hidden;border:2px solid transparent;background:var(--pn2);font:inherit;font-size:12px;color:var(--tx);padding:0 0 4px}
+.fl.on{border-color:var(--ac)}
+.fl div{height:54px;background:#444 center/cover;margin-bottom:4px}
+.emo{display:grid;grid-template-columns:repeat(auto-fill,minmax(44px,1fr));gap:4px;margin:6px 0 10px}
+.emo button{font-size:26px;background:var(--pn2);border:0;border-radius:8px;padding:4px 0}
+#ov{position:fixed;inset:0;background:#000c;display:none;align-items:center;justify-content:center;z-index:9;padding:24px}
+#ov .box{background:var(--pn);border-radius:16px;padding:20px;width:100%;max-width:360px;text-align:center}
+#ov h2{font-size:18px}
+.bar{height:8px;background:var(--pn2);border-radius:4px;overflow:hidden;margin:14px 0}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--ac),var(--ac2))}
+.list{display:flex;flex-direction:column;gap:6px}
+.item{background:var(--pn2);border-radius:10px;padding:8px 10px}
+.item .top{display:flex;align-items:center;gap:8px}
+.item .top b{flex:1;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+</style>
+</head>
+<body>
+<header><h1>🎬 Chal<b>chitra</b></h1><button class="btn sm" id="undoB">↶ Undo</button><button class="btn sm pri" id="expB">Export</button></header>
+<div id="stage"><canvas id="cv"></canvas></div>
+<div id="ctrl"><button id="playb">▶</button><input type="range" id="scrub" min="0" max="0" step="0.01" value="0"><span id="time">0:00.0 / 0:00.0</span></div>
+<div id="tl"></div>
+<div id="txtrow"></div>
+<div id="panel"></div>
+<nav id="tabs"></nav>
+<div id="ov"><div class="box"><h2 id="ovT"></h2><div class="bar" id="ovB"><i id="ovBar"></i></div><p id="ovP" class="hint"></p><div id="ovA" style="display:flex;gap:8px;justify-content:center;margin-top:10px;flex-wrap:wrap"></div></div></div>
+<input type="file" id="fileIn" accept="video/*,image/*" multiple hidden>
+<input type="file" id="audIn" accept="audio/*,.mp3,.m4a,.aac,.wav,.ogg,.opus,.flac,.amr,.3gp" multiple hidden>
+<script>
+const $=s=>document.querySelector(s);
+const cv=$('#cv'),cx=cv.getContext('2d'),tl=$('#tl'),panel=$('#panel'),tabs=$('#tabs'),playb=$('#playb'),scrub=$('#scrub'),fileIn=$('#fileIn'),audIn=$('#audIn');
+const pool=document.createElement('div');pool.style.cssText='position:fixed;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden';document.body.append(pool);
+const RATIOS={'9:16':[1080,1920],'1:1':[1080,1080],'4:5':[1080,1350],'16:9':[1920,1080]};
+const FILTERS={Original:'',Vivid:'saturate(1.5) contrast(1.1)',Warm:'sepia(.35) saturate(1.3) hue-rotate(-10deg)',Cool:'hue-rotate(18deg) saturate(1.1) brightness(1.05)',Mono:'grayscale(1)',Noir:'grayscale(1) contrast(1.6) brightness(.9)',Sepia:'sepia(.85)',Faded:'contrast(.85) brightness(1.1) saturate(.75)',Pop:'contrast(1.3) saturate(1.8)',Dream:'brightness(1.12) saturate(1.3) blur(1px)',Retro:'sepia(.4) contrast(1.2) saturate(.9) hue-rotate(-15deg)',Night:'brightness(.8) contrast(1.2) hue-rotate(200deg) saturate(.7)'};
+const FONTS={Sans:'system-ui,sans-serif',Serif:'Georgia,serif',Bold:'Impact,"Arial Black",sans-serif',Mono:'"Courier New",monospace',Script:'"Brush Script MT","Segoe Script",cursive'};
+const MOTIONS=['None','Zoom in','Zoom out','Pan left','Pan right','Shake','Rotate in','Bounce in','Pulse'];
+const TRS=['None','Fade','Flash','Zoom','Slide','Wipe','Spin','Blur'];
+const FXS=['None','Vignette','Cinema bars','Grain','Old film','Light leak','Glitch','VHS','Glow'];
+const TANIMS=['None','Fade','Pop','Slide','Bounce','Zoom','Shake','Typewriter'];
+const EMOJI=['😀','😂','😍','🥰','😎','🤩','😭','😡','👍','👏','🙏','💪','🔥','✨','⭐','💯','❤️','💔','🎉','🎂','🎁','🌸','🌹','☀️','🌙','⚡','🌈','🍕','☕','🎵','📍','✈️','🏆','👑','💡','➡️'];
+const F={s:v=>(+v).toFixed(1)+'s',p:v=>Math.round(v)+'%',p100:v=>Math.round(v*100)+'%',n:v=>Math.round(v),x:v=>(+v).toFixed(2)+'×',n2:v=>(+v).toFixed(2)};
+const S={clips:[],texts:[],audios:[],ratio:'9:16',q:'720',bg:'#000000',bgMode:'blur',fade:0.4,sel:null,selText:null,t:0,playing:false,exporting:false,tab:'media',emo:false,mix:'all',viz:'None',vizC:'#ff5a5f'};
+const VFX=['None','Deep','Chipmunk','Echo','Hall','Radio','Phone','Robot'],VIZ=['None','Bars','Wave','Circle','Pulse','Beat zoom'];
+let W=0,H=0,uid=1,cur=null,raf=0,lastTs=0,AC=null,recDest=null,rec=null,chunks=[],vrec=null,wake=null,grain=null;
+
+const clen=c=>Math.max(.1,(c.end-c.start)/c.speed);
+const total=()=>S.clips.reduce((a,c)=>a+clen(c),0);
+const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
+const fmt=s=>{s=Math.max(0,s);const m=Math.floor(s/60);return m+':'+(s%60).toFixed(1).padStart(4,'0')};
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const startOf=i=>S.clips.slice(0,i).reduce((a,c)=>a+clen(c),0);
+const newFid=()=>'f'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+function clipAt(t){let acc=0;const n=S.clips.length;for(let i=0;i<n;i++){const c=S.clips[i],L=clen(c);if(t<acc+L||i===n-1)return{c,i,off:acc,local:clamp(t-acc,0,L)};acc+=L}return null}
+function setSize(){const[w,h]=RATIOS[S.ratio],k=S.q==='1080'?1:2/3;W=cv.width=Math.round(w*k/2)*2;H=cv.height=Math.round(h*k/2)*2}
+
+/* ---------- storage (projects survive closing the app) ---------- */
+const DB={db:null,open(){if(this.db)return Promise.resolve(this.db);return new Promise((r,j)=>{const q=indexedDB.open('chalchitra',1);q.onupgradeneeded=()=>{q.result.createObjectStore('files');q.result.createObjectStore('proj')};q.onsuccess=()=>r(this.db=q.result);q.onerror=j})},
+  async tx(st,mode,fn){const d=await this.open();return new Promise((r,j)=>{const t=d.transaction(st,mode),q=fn(t.objectStore(st));t.oncomplete=()=>r(q&&q.result);t.onerror=j})},
+  put(st,k,v){return this.tx(st,'readwrite',s=>s.put(v,k))},get(st,k){return this.tx(st,'readonly',s=>s.get(k))},clear(st){return this.tx(st,'readwrite',s=>s.clear())}};
+let saveT=0;
+function autosave(){clearTimeout(saveT);saveT=setTimeout(saveNow,1200)}
+function saveNow(){if(S.exporting)return;const p={clips:S.clips.map(({el,...r})=>r),texts:S.texts.map(({_box,...r})=>r),audios:S.audios.map(({el,...r})=>r),ratio:S.ratio,q:S.q,bg:S.bg,bgMode:S.bgMode,fade:S.fade,mix:S.mix,viz:S.viz,vizC:S.vizC};DB.put('proj','current',p).catch(()=>{})}
+async function loadProject(p){showOv('Opening project…','');const cache={};
+  const getEl=async(fid,kind)=>{if(cache[fid])return cache[fid];const blob=await DB.get('files',fid);if(!blob)throw 0;const url=URL.createObjectURL(blob);let el;
+    if(kind==='video')el=await loadVideo(url);else if(kind==='image')el=await loadImage(url);else{el=new Audio();el.preload='auto';el.src=url;pool.append(el)}return cache[fid]=el};
+  S.clips=[];for(const c of p.clips||[]){try{S.clips.push({...c,el:await getEl(c.fid,c.kind)})}catch(e){}}
+  S.audios=[];for(const a of p.audios||[]){try{const el=await getEl(a.fid,'audio');el.loop=a.loop;S.audios.push({...a,el})}catch(e){}}
+  S.texts=p.texts||[];Object.assign(S,{ratio:p.ratio||'9:16',q:p.q||'720',bg:p.bg||'#000000',bgMode:p.bgMode||'blur',fade:p.fade??.4,mix:p.mix||'all',viz:p.viz||'None',vizC:p.vizC||'#ff5a5f'});
+  uid=1+Math.max(0,...S.clips.map(c=>c.id),...S.texts.map(t=>t.id),...S.audios.map(a=>a.id));S.sel=S.clips[0]||null;S.t=0;setSize();hideOv();renderAll()}
+async function newProject(){pause();S.clips=[];S.texts=[];S.audios.forEach(a=>a.el.pause());S.audios=[];S.sel=S.selText=null;S.t=0;hist.length=0;try{await DB.clear('files');await DB.clear('proj')}catch(e){}renderAll()}
+
+/* ---------- undo ---------- */
+const hist=[];let lastMark=0;
+function snap(){return{clips:S.clips.map(c=>({...c})),texts:S.texts.map(t=>({...t})),audios:S.audios.map(a=>({...a})),ratio:S.ratio,bg:S.bg,bgMode:S.bgMode,fade:S.fade}}
+function push(){hist.push(snap());if(hist.length>50)hist.shift();lastMark=Date.now()}
+function mark(){if(Date.now()-lastMark>700)push();lastMark=Date.now()}
+function undo(){const h=hist.pop();if(!h)return;pause();const sid=S.sel&&S.sel.id,tid=S.selText&&S.selText.id;Object.assign(S,h);S.sel=S.clips.find(c=>c.id===sid)||S.clips[0]||null;S.selText=S.texts.find(t=>t.id===tid)||null;S.t=Math.min(S.t,total());setSize()}
+
+/* ---------- audio graph ---------- */
+let master=null,ana=null,anaBuf=null;
+function audioInit(){if(AC)return;AC=new(window.AudioContext||window.webkitAudioContext)();recDest=AC.createMediaStreamDestination();master=AC.createGain();ana=AC.createAnalyser();ana.fftSize=256;ana.smoothingTimeConstant=.8;anaBuf=new Uint8Array(ana.frequencyBinCount);master.connect(ana);master.connect(AC.destination);master.connect(recDest)}
+function hook(el){audioInit();if(el._g)return el._g;const src=AC.createMediaElementSource(el),g=AC.createGain();src.connect(g);g.connect(master);el._g=g;el._src=src;el._fx='None';return g}
+/* voice effects: rebuild the chain between source and gain */
+function applyVoiceFx(a){const el=a.el,g=hook(el);if(el._fx===a.fx)return;el._src.disconnect();if(el._chain)el._chain.forEach(n=>{try{n.disconnect()}catch(e){}});el._chain=[];el.playbackRate=1;el.preservesPitch=true;
+  const mk=(type,o)=>{const n=AC[type]();Object.assign(n,o||{});el._chain.push(n);return n};let last=el._src;
+  switch(a.fx){case'Deep':el.preservesPitch=false;el.playbackRate=.8;break;case'Chipmunk':el.preservesPitch=false;el.playbackRate=1.3;break;
+    case'Echo':{const d=mk('createDelay'),fb=mk('createGain',{gain:.4});d.delayTime.value=.28;last.connect(d);d.connect(fb);fb.connect(d);d.connect(g);break}
+    case'Hall':{const d=mk('createDelay'),fb=mk('createGain',{gain:.55}),lp=mk('createBiquadFilter',{type:'lowpass'});lp.frequency.value=2500;d.delayTime.value=.09;last.connect(d);d.connect(lp);lp.connect(fb);fb.connect(d);d.connect(g);break}
+    case'Radio':{const hp=mk('createBiquadFilter',{type:'highpass'}),lp=mk('createBiquadFilter',{type:'lowpass'}),ws=mk('createWaveShaper');hp.frequency.value=600;lp.frequency.value=2800;const wc=new Float32Array(256);for(let i=0;i<256;i++){const x=i/128-1;wc[i]=Math.tanh(x*3)}ws.curve=wc;last.connect(hp);hp.connect(ws);ws.connect(lp);lp.connect(g);last=null;break}
+    case'Robot':{const r=mk('createOscillator',{type:'square'}),rg=mk('createGain',{gain:0});r.frequency.value=50;r.connect(rg.gain);r.start();last.connect(rg);rg.connect(g);last=null;break}
+    case'Phone':{const bp=mk('createBiquadFilter',{type:'bandpass'});bp.frequency.value=1500;bp.Q.value=1.2;last.connect(bp);bp.connect(g);last=null;break}}
+  if(last)last.connect(g);el._fx=a.fx}
+/* mix modes: what plays & exports */
+const MIX={all:'All sound',voice:'Voice only',music:'Music only',orig:'Original clip sound only',mute:'Mute everything'};
+function mixGain(kind){const m=S.mix||'all';if(m==='mute')return 0;if(m==='all')return 1;return(m===kind)?1:0}
+function levels(){if(!ana)return null;ana.getByteFrequencyData(anaBuf);return anaBuf}
+
+/* ---------- media import ---------- */
+function mk(o){return Object.assign({id:uid++,start:0,speed:1,vol:1,fit:'cover',filter:'Original',bri:100,con:100,sat:100,motion:o.kind==='image'?'Zoom in':'None',tr:'Fade',rot:0,flip:false,flipV:false,zoom:1,px:0,py:0,fx:'None'},o)}
+function thumbOf(src,w,h){const c=document.createElement('canvas');c.width=c.height=120;const x=c.getContext('2d'),s=Math.max(120/w,120/h);x.drawImage(src,(120-w*s)/2,(120-h*s)/2,w*s,h*s);return c.toDataURL('image/jpeg',.7)}
+function loadVideo(url){return new Promise((res,rej)=>{const v=document.createElement('video');v.playsInline=true;v.setAttribute('playsinline','');v.preload='auto';v.onloadedmetadata=()=>res(v);v.onerror=rej;v.src=url;pool.append(v);v.load()})}
+async function loadImage(url){const img=new Image();img.src=url;await img.decode();return img}
+function vthumb(v){return new Promise(r=>{let done=false;const f=()=>{if(done)return;done=true;v.onseeked=null;try{r(thumbOf(v,v.videoWidth,v.videoHeight))}catch(e){r('')}};v.onseeked=f;setTimeout(f,3000);v.currentTime=Math.min(.5,(v.duration||1)/2)})}
+async function addFiles(list){if(!list.length)return;push();showOv('Adding media…','');let n=0;
+  for(const f of list){const url=URL.createObjectURL(f),fid=newFid();try{
+    if(f.type.startsWith('image')){const img=await loadImage(url);S.clips.push(mk({kind:'image',el:img,fid,name:f.name,dur:15,end:3,thumb:thumbOf(img,img.naturalWidth,img.naturalHeight)}))}
+    else{const v=await loadVideo(url);const d=isFinite(v.duration)?v.duration:10;const th=await vthumb(v);S.clips.push(mk({kind:'video',el:v,fid,name:f.name,dur:d,end:d,thumb:th}))}
+    DB.put('files',fid,f).catch(()=>{});
+  }catch(e){}$('#ovBar').style.width=(++n/list.length*100)+'%'}
+  hideOv();if(!S.sel)S.sel=S.clips[0]||null;renderAll()}
+async function makeAudio(blob,name,kind){const fid=newFid();DB.put('files',fid,blob).catch(()=>{});const a=new Audio();a.preload='auto';a.src=URL.createObjectURL(blob);pool.append(a);await new Promise(r=>{a.onloadedmetadata=r;a.onerror=r;setTimeout(r,4000)});return{id:uid++,fid,el:a,name,kind,vol:kind==='voice'?1:.7,at:0,off:0,dur:isFinite(a.duration)?a.duration:0,loop:kind==='music',fadeOut:kind==='music',fadeIn:false,duck:kind==='music',fx:'None'}}
+/* extract the sound of a clip into its own track so it can be edited like music */
+async function extractAudio(){const c=S.sel;if(!c||c.kind!=='video')return;const blob=await DB.get('files',c.fid);if(!blob){note('Original file not found');return}push();
+  const a=await makeAudio(blob,'Sound of '+c.name,'music');a.loop=false;a.el.loop=false;a.fadeOut=false;a.duck=false;a.vol=1;a.off=c.start;a.at=startOf(S.clips.indexOf(c));a.dur=c.end;S.audios.push(a);c.vol=0;S.tab='audio'}
+
+/* ---------- rendering a frame ---------- */
+function motionT(c,local){const L=clen(c),p=clamp(local/L,0,1);let s=1,dx=0,dy=0,r=0,q;
+  switch(c.motion){case'Zoom in':s=1+.15*p;break;case'Zoom out':s=1.15-.15*p;break;case'Pan left':s=1.15;dx=(.5-p)*.12*W;break;case'Pan right':s=1.15;dx=(p-.5)*.12*W;break;
+    case'Shake':s=1.06;dx=Math.sin(local*37)*.012*W;dy=Math.cos(local*29)*.012*H;break;case'Rotate in':q=Math.min(1,local/.6);r=-(1-q)*(1-q)*.35;s=.7+.3*(1-(1-q)*(1-q));break;
+    case'Bounce in':q=Math.min(1,local/.5);s=q<1?.6+.4*q+Math.sin(q*Math.PI)*.12:1;break;case'Pulse':s=1+.04*Math.sin(local*6);break}
+  return{s,dx,dy,r}}
+function drawClip(c,local,blurBg,tr){const el=c.el,v=c.kind==='video',sw=v?el.videoWidth:el.naturalWidth,sh=v?el.videoHeight:el.naturalHeight;if(!sw||!sh)return;
+  const rot=(((c.rot||0)%360)+360)%360,sw2=rot%180?sh:sw,sh2=rot%180?sw:sh;
+  let s=(c.fit==='cover'||blurBg)?Math.max(W/sw2,H/sh2):Math.min(W/sw2,H/sh2);
+  const m=blurBg?{s:1,dx:0,dy:0,r:0}:motionT(c,local),z=blurBg?1:(c.zoom||1);s*=z*m.s*(tr&&!blurBg?tr.s:1);
+  let f=(FILTERS[c.filter]||'')+(c.bri!=100?` brightness(${c.bri}%)`:'')+(c.con!=100?` contrast(${c.con}%)`:'')+(c.sat!=100?` saturate(${c.sat}%)`:'');
+  if(blurBg)f+=' blur(24px) brightness(.55)';if(tr&&tr.blur)f+=` blur(${tr.blur}px)`;
+  cx.save();cx.filter=f.trim()||'none';
+  cx.translate(W/2+m.dx+(blurBg?0:(c.px||0)*W*.5*(z-1))+(tr&&!blurBg?tr.dx:0),H/2+m.dy+(blurBg?0:(c.py||0)*H*.5*(z-1)));
+  cx.rotate(rot*Math.PI/180+m.r+(tr&&!blurBg?tr.r:0));if(c.flip)cx.scale(-1,1);if(c.flipV)cx.scale(1,-1);
+  const w=sw*s,h=sh*s;try{cx.drawImage(el,-w/2,-h/2,w,h)}catch(e){}cx.restore()}
+function trState(a){const c=a.c,L=clen(c),D=Math.max(.05,S.fade)/2;let t=null;
+  if(a.i<S.clips.length-1&&c.tr!=='None'&&L-a.local<D)t={type:c.tr,k:1-(L-a.local)/D,out:true};
+  else if(a.i>0&&S.clips[a.i-1].tr!=='None'&&a.local<D)t={type:S.clips[a.i-1].tr,k:1-a.local/D,out:false};
+  if(!t)return null;const k=t.k,sg=t.out?1:-1;Object.assign(t,{s:1,dx:0,r:0,blur:0});
+  if(t.type==='Zoom')t.s=1+k*.8;if(t.type==='Slide')t.dx=-sg*k*W;if(t.type==='Spin'){t.r=sg*k*1.2;t.s=1-k*.5}if(t.type==='Blur')t.blur=k*24;return t}
+function drawFX(c,local){const fx=c.fx;if(!fx||fx==='None')return;cx.save();
+  if(fx==='Vignette'||fx==='Old film'){const g=cx.createRadialGradient(W/2,H/2,Math.min(W,H)*.3,W/2,H/2,Math.max(W,H)*.75);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(0,0,0,.75)');cx.fillStyle=g;cx.fillRect(0,0,W,H)}
+  if(fx==='Grain'||fx==='Old film'){if(!grain){grain=document.createElement('canvas');grain.width=grain.height=256;const g=grain.getContext('2d'),d=g.createImageData(256,256);for(let i=0;i<d.data.length;i+=4){d.data[i]=d.data[i+1]=d.data[i+2]=Math.random()*255;d.data[i+3]=38}g.putImageData(d,0,0)}
+    cx.translate(-Math.random()*256,-Math.random()*256);cx.fillStyle=cx.createPattern(grain,'repeat');cx.fillRect(0,0,W+256,H+256);cx.setTransform(1,0,0,1,0,0);
+    if(fx==='Old film'){cx.fillStyle=`rgba(255,235,190,${.06+Math.random()*.06})`;cx.fillRect(0,0,W,H);if(Math.random()<.3){cx.fillStyle='rgba(255,255,255,.3)';cx.fillRect(Math.random()*W,0,2,H)}}}
+  if(fx==='Cinema bars'){const b=H*.11;cx.fillStyle='#000';cx.fillRect(0,0,W,b);cx.fillRect(0,H-b,W,b)}
+  if(fx==='Light leak'){const x=W*(.5+.5*Math.sin(local*.8)),g=cx.createRadialGradient(x,H*.2,0,x,H*.2,W*.9);g.addColorStop(0,'rgba(255,150,60,.55)');g.addColorStop(1,'rgba(255,80,0,0)');cx.globalCompositeOperation='screen';cx.fillStyle=g;cx.fillRect(0,0,W,H)}
+  if(fx==='Glitch'&&Math.random()<.5){for(let i=0;i<5;i++){const y=Math.random()*H,h=H*(.02+Math.random()*.06),dx=(Math.random()-.5)*W*.08;cx.drawImage(cv,0,y,W,h,dx,y,W,h)}cx.globalCompositeOperation='screen';cx.globalAlpha=.25;cx.drawImage(cv,W*.012,0)}
+  if(fx==='VHS'){cx.fillStyle='rgba(0,0,0,.18)';for(let y=(local*60)%4;y<H;y+=4)cx.fillRect(0,y,W,1.5);cx.globalCompositeOperation='screen';cx.globalAlpha=.15;cx.drawImage(cv,-W*.006,0)}
+  if(fx==='Glow'){cx.globalCompositeOperation='screen';cx.globalAlpha=.35;cx.filter='blur(12px)';cx.drawImage(cv,0,0)}
+  cx.restore()}
+function draw(){cx.fillStyle=S.bg;cx.fillRect(0,0,W,H);
+  if(!S.clips.length){cx.fillStyle='#8b92a3';cx.font=`${W*.045}px system-ui`;cx.textAlign='center';cx.textBaseline='middle';cx.fillText('Tap + to add videos & photos',W/2,H/2);return}
+  const a=clipAt(S.t),c=a.c,tr=trState(a);
+  if(c.fit==='contain'&&S.bgMode==='blur')drawClip(c,a.local,true,tr);
+  drawClip(c,a.local,false,tr);drawFX(c,a.local);
+  if(tr){const k=tr.k,O={Fade:['#000',k],Flash:['#fff',k],Zoom:['#fff',k*.5],Spin:['#000',k*.5],Blur:['#000',k*.4]}[tr.type];
+    if(O){cx.globalAlpha=O[1];cx.fillStyle=O[0];cx.fillRect(0,0,W,H);cx.globalAlpha=1}
+    if(tr.type==='Wipe'){cx.fillStyle='#000';tr.out?cx.fillRect(W*(1-k),0,W*k+1,H):cx.fillRect(0,0,W*k,H)}}
+  drawViz();drawTexts()}
+/* sound-reactive visuals (voice / music animation) */
+function drawViz(){const v=S.viz;if(!v||v==='None')return;const d=S.playing?levels():null;const n=32,k=W/1080;cx.save();cx.fillStyle=S.vizC;cx.strokeStyle=S.vizC;cx.globalAlpha=.9;
+  const val=i=>d?d[Math.floor(i*d.length*.6/n)]/255:.15+.1*Math.sin(S.t*4+i);
+  if(v==='Bars'){const bw=W/n;for(let i=0;i<n;i++){const h=val(i)*H*.25;cx.fillRect(i*bw+bw*.2,H-h-H*.04,bw*.6,h)}}
+  if(v==='Wave'){cx.lineWidth=6*k;cx.lineCap='round';cx.beginPath();for(let i=0;i<=n;i++){const x=i/n*W,y=H*.5+(val(Math.min(i,n-1))-.15)*H*.3*Math.sin(i*1.3+S.t*2);i?cx.lineTo(x,y):cx.moveTo(x,y)}cx.stroke()}
+  if(v==='Circle'){const r0=Math.min(W,H)*.22;cx.lineWidth=5*k;for(let i=0;i<n;i++){const a=i/n*Math.PI*2,L=val(i)*r0*.9;cx.beginPath();cx.moveTo(W/2+Math.cos(a)*r0,H/2+Math.sin(a)*r0);cx.lineTo(W/2+Math.cos(a)*(r0+L),H/2+Math.sin(a)*(r0+L));cx.stroke()}}
+  if(v==='Pulse'){const e=d?d.slice(0,8).reduce((a,b)=>a+b,0)/8/255:.2;cx.globalAlpha=.25+e*.4;cx.beginPath();cx.arc(W/2,H/2,Math.min(W,H)*(.15+e*.3),0,7);cx.fill()}
+  if(v==='Beat zoom'){const e=d?d.slice(0,6).reduce((a,b)=>a+b,0)/6/255:0;if(e>.55){const z=1+(e-.55)*.25;cx.globalAlpha=1;cx.drawImage(cv,W/2-W*z/2,H/2-H*z/2,W*z,H*z)}}
+  cx.restore()}
+function drawTexts(){const k=W/1080;for(const t of S.texts){if(S.t<t.start||S.t>t.end){t._box=null;continue}
+  const lt=S.t-t.start,rt=t.end-S.t;let al=1,sc=1,dy=0,dx=0,txt=t.text,p;
+  switch(t.anim){case'Fade':al=Math.min(1,lt/.4,rt/.4);break;case'Pop':p=Math.min(1,lt/.3);sc=.5+.5*p+Math.sin(p*Math.PI)*.15;al=Math.min(1,rt/.3);break;
+    case'Slide':p=Math.min(1,lt/.45);dy=(1-p)*(1-p)*120*k;al=Math.min(p*1.5,1,rt/.3);break;case'Bounce':dy=-Math.abs(Math.sin(lt*5))*50*k*Math.max(0,1-lt/1.5);break;
+    case'Zoom':sc=Math.max(1,2.2-lt/.35*1.2);al=Math.min(1,lt/.3,rt/.3);break;case'Shake':dx=Math.sin(lt*40)*6*k;break;case'Typewriter':txt=txt.slice(0,Math.floor(lt*18))}
+  const fs=t.size*k,lh=fs*1.2,full=t.text.split('\n'),lines=txt.split('\n');
+  cx.save();cx.globalAlpha=Math.max(0,al);cx.font=`700 ${fs}px ${FONTS[t.font]||FONTS.Sans}`;cx.textAlign='center';cx.textBaseline='middle';
+  const wm=Math.max(1,...full.map(l=>cx.measureText(l).width)),hh=lh*full.length,x=t.x*W+dx,y=t.y*H+dy;
+  cx.translate(x,y);cx.scale(sc,sc);
+  if(t.bg){cx.fillStyle=t.bgc+'b0';const bx=-wm/2-fs*.35,by=-hh/2-fs*.18,bw=wm+fs*.7,bh=hh+fs*.36;cx.beginPath();cx.roundRect?cx.roundRect(bx,by,bw,bh,fs*.25):cx.rect(bx,by,bw,bh);cx.fill()}
+  else if(!t.stroke){cx.shadowColor='rgba(0,0,0,.75)';cx.shadowBlur=fs*.18}
+  lines.forEach((l,i)=>{const ly=-hh/2+lh*(i+.5);if(t.stroke){cx.lineJoin='round';cx.lineWidth=fs*.12;cx.strokeStyle=t.strokeC;cx.strokeText(l,0,ly)}cx.fillStyle=t.color;cx.fillText(l,0,ly)});
+  cx.restore();t._box=[x-wm/2,y-hh/2,wm,hh]}}
+
+/* ---------- playback ---------- */
+function markCur(i){[...tl.children].forEach((d,j)=>d.classList.toggle('cur',j===i&&S.playing))}
+function startClipAt(t){const a=clipAt(t);if(!a)return;if(cur&&cur.c.kind==='video'&&cur.c.el!==a.c.el)cur.c.el.pause();cur=a;S.t=t;const c=a.c;
+  if(c.kind==='video'){hook(c.el).gain.value=c.vol*mixGain('orig');c.el.playbackRate=c.speed;c.el.currentTime=c.start+a.local*c.speed;c.el.play().catch(()=>{})}markCur(a.i)}
+function play(){if(!S.clips.length)return;audioInit();AC.resume();if(S.t>=total()-.05)S.t=0;S.playing=true;cur=null;startClipAt(S.t);lastTs=performance.now();syncAudios();playb.textContent='❚❚';cancelAnimationFrame(raf);raf=requestAnimationFrame(tick)}
+function pause(){S.playing=false;cancelAnimationFrame(raf);S.clips.forEach(c=>c.kind==='video'&&!c.el.paused&&c.el.pause());S.audios.forEach(a=>a.el.pause());playb.textContent='▶';markCur(-1)}
+function tick(ts){if(!S.playing)return;const dt=Math.min(.1,(ts-lastTs)/1000);lastTs=ts;const c=cur.c,L=clen(c),el=c.el;
+  if(c.kind==='video'){if(el.paused&&!el.seeking&&!el.ended)S.t+=dt;else if(!el.seeking)S.t=Math.max(S.t,cur.off+(el.currentTime-c.start)/c.speed);if(el.ended||el.currentTime>=c.end-.02)S.t=cur.off+L}
+  else S.t+=dt;
+  if(S.t>=cur.off+L-.001){if(cur.i>=S.clips.length-1){S.t=total();draw();updTime();finish();return}startClipAt(cur.off+L+.001)}
+  syncAudios();draw();updTime();if(S.exporting)$('#ovBar').style.width=(S.t/total()*100)+'%';raf=requestAnimationFrame(tick)}
+function syncAudios(){const T=total();for(const a of S.audios){const len=a.loop?Infinity:Math.max(0,(a.dur||1e9)-a.off);const inR=S.playing&&S.t>=a.at&&S.t<a.at+len&&S.t<T;
+  if(inR){const g=hook(a.el);applyVoiceFx(a);let gv=a.vol*mixGain(a.kind);if(a.fadeIn&&S.t-a.at<2)gv*=(S.t-a.at)/2;if(a.fadeOut&&T-S.t<2)gv*=Math.max(0,(T-S.t)/2);
+    if(a.duck&&a.kind==='music'&&S.audios.some(v=>v.kind==='voice'&&S.t>=v.at&&S.t<v.at+v.dur))gv*=.25;g.gain.value=gv;
+    if(a.el.paused){let p=a.off+(S.t-a.at);const d=a.el.duration;if(a.loop&&isFinite(d)&&d>0)p%=d;try{a.el.currentTime=p}catch(e){}a.el.play().catch(()=>{})}}
+  else if(!a.el.paused)a.el.pause()}}
+function finish(){pause();if(vrec)vrec.stop();if(S.exporting){S.exporting=false;$('#ovBar').style.width='100%';setTimeout(()=>{if(rec&&rec.state!=='inactive')rec.stop()},300)}}
+function showFrame(t){S.t=clamp(t,0,total());if(S.clips.length){const a=clipAt(S.t),c=a.c;if(c.kind==='video'){const tg=c.start+a.local*c.speed;if(Math.abs(c.el.currentTime-tg)>.03){c.el.onseeked=()=>{c.el.onseeked=null;if(!S.playing)draw()};c.el.currentTime=tg}}}draw();updTime()}
+function updTime(){const T=total();scrub.max=T;scrub.value=S.t;$('#time').textContent=fmt(S.t)+' / '+fmt(T)}
+
+/* ---------- voiceover ---------- */
+async function toggleVoice(){if(vrec){vrec.stop();return}
+  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia||!window.MediaRecorder){note('Recording is not supported in this browser');return}
+  let st;try{st=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true}})}catch(e){note('Please allow microphone access');return}
+  const at=S.t,ch=[],t0=performance.now(),r=new MediaRecorder(st);vrec=r;
+  r.ondataavailable=e=>{if(e.data.size)ch.push(e.data)};
+  r.onstop=async()=>{st.getTracks().forEach(x=>x.stop());vrec=null;pause();const dur=(performance.now()-t0)/1000;push();
+    const a=await makeAudio(new Blob(ch,{type:r.mimeType||'audio/webm'}),'Voiceover '+(S.audios.filter(x=>x.kind==='voice').length+1),'voice');a.at=at;a.dur=dur;a.loop=false;a.fadeOut=false;S.audios.push(a);renderAll()};
+  r.start();if(S.clips.length&&!S.playing)play()}
+
+/* ---------- export ---------- */
+async function exportVideo(){if(!S.clips.length){note('Add some clips first');return}
+  if(!window.MediaRecorder||!cv.captureStream){note('Export is not supported in this browser. Please use Chrome.');return}
+  pause();audioInit();await AC.resume();S.clips.forEach(c=>c.kind==='video'&&hook(c.el));S.audios.forEach(a=>hook(a.el));
+  const ms=new MediaStream([...cv.captureStream(30).getVideoTracks(),...recDest.stream.getAudioTracks()]);
+  const mime=['video/mp4;codecs=avc1.42E01E,mp4a.40.2','video/mp4','video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm'].find(m=>MediaRecorder.isTypeSupported(m));
+  try{rec=new MediaRecorder(ms,mime?{mimeType:mime,videoBitsPerSecond:S.q==='1080'?10e6:6e6}:{})}catch(e){note('Export could not start: '+e.message);return}
+  chunks=[];rec.ondataavailable=e=>{if(e.data.size)chunks.push(e.data)};rec.onstop=exportDone;
+  showOv('Exporting…','Keep this screen open. Your video plays once while it records.');
+  $('#ovA').append(btn('Cancel',()=>{S.cancel=true;S.exporting=false;pause();if(rec.state!=='inactive')rec.stop()}));
+  try{wake=await navigator.wakeLock.request('screen')}catch(e){}
+  S.exporting=true;S.t=0;rec.start(500);play()}
+function exportDone(){if(wake){wake.release().catch(()=>{});wake=null}if(S.cancel){S.cancel=false;hideOv();return}
+  const type=(rec.mimeType||'video/webm').split(';')[0],blob=new Blob(chunks,{type}),ext=type.includes('mp4')?'mp4':'webm',url=URL.createObjectURL(blob),name=`chalchitra-${Date.now()}.${ext}`;
+  $('#ovT').textContent='Your video is ready 🎉';$('#ovP').textContent=`${(blob.size/1048576).toFixed(1)} MB · ${ext.toUpperCase()} · ${W}×${H}. Download saves it to your phone (Gallery → Downloads).`;
+  const A=$('#ovA');A.innerHTML='';const dl=document.createElement('a');dl.href=url;dl.download=name;dl.className='btn pri';dl.textContent='⬇ Save to phone';A.append(dl);
+  try{const file=new File([blob],name,{type});if(navigator.canShare&&navigator.canShare({files:[file]}))A.append(btn('↗ Share',()=>navigator.share({files:[file]}).catch(()=>{})))}catch(e){}
+  A.append(btn('Close',hideOv))}
+
+/* ---------- overlay ---------- */
+function btn(l,f,cls='btn'){const x=document.createElement('button');x.className=cls;x.textContent=l;x.onclick=f;return x}
+function showOv(t,p,bar=true){$('#ovT').textContent=t;$('#ovP').textContent=p||'';$('#ovBar').style.width='0';$('#ovB').style.display=bar?'':'none';$('#ovA').innerHTML='';$('#ov').style.display='flex'}
+function hideOv(){$('#ov').style.display='none'}
+function note(m){showOv(m,'',false);$('#ovA').append(btn('OK',hideOv))}
+function ask(t,p,yes,fn){showOv(t,p,false);$('#ovA').append(btn(yes,()=>{hideOv();fn()},'btn pri'),btn('Cancel',hideOv))}
+
+/* ---------- panels ---------- */
+const rng=(l,o,k,min,max,st,v,f)=>`<label class="row"><span>${l}</span><input type="range" data-o="${o}" data-k="${k}" data-f="${f}" min="${min}" max="${max}" step="${st}" value="${v}"><output>${F[f](v)}</output></label>`;
+const chip=(l,act,v,on)=>`<button class="chip${on?' on':''}" data-act="${act}" data-v="${v}">${l}</button>`;
+const B=(l,act,v='',cls='')=>`<button class="btn sm ${cls}" data-act="${act}" data-v="${v}">${l}</button>`;
+const noSel=`<p class="hint">Tap a clip in the timeline first.</p>`;
+function pMedia(){return`<div class="chips">${B('+ Add videos & photos','add','','pri')}${B('🗑 New project','newProj')}</div><p class="hint">${S.clips.length} clip(s) · ${fmt(total())}. Your project saves automatically on this phone, so you can close the app and continue later. Nothing is uploaded.</p><p class="hint">Tap a clip to cut, trim, slow it down, animate or add effects. Tap the preview to play or pause.</p>`}
+function pEdit(){const c=S.sel;if(!c)return noSel+B('+ Add media','add');
+  let h=`<h3>${esc(c.name)}</h3><div class="chips">${B('✂️ Split','split')}${c.kind==='video'?B('❄️ Freeze frame','freeze'):''}${B('⧉ Copy','dup')}${B('◀ Move','left')}${B('Move ▶','right')}${B('🗑 Delete','del')}</div>`;
+  if(c.kind==='video'){h+=`<h3>Cut / trim</h3>`+rng('Start','clip','start',0,c.dur.toFixed(2),.05,c.start,'s')+rng('End','clip','end',0,c.dur.toFixed(2),.05,c.end,'s');
+    h+=`<h3>Speed · slow-mo</h3><div class="chips">${[[.25,'🐢 0.25×'],[.5,'Slo-mo 0.5×'],[1,'Normal'],[1.5,'1.5×'],[2,'2×'],[4,'⚡ 4×']].map(([s,l])=>chip(l,'speed',s,c.speed==s)).join('')}</div>`+rng('Custom','clip','speed',.1,4,.05,c.speed,'x');
+    h+=`<h3>Sound</h3>`+rng('Volume','clip','vol',0,2,.05,c.vol,'p100')+`<div class="chips">${chip(c.vol?'🔇 Mute clip':'🔊 Unmute','mute','',!c.vol)}</div>`}
+  else h+=`<h3>Photo</h3>`+rng('Show for','clip','end',.5,15,.5,c.end,'s');
+  h+=`<h3>Frame</h3><div class="chips">${chip('Fill screen','fit','cover',c.fit==='cover')}${chip('Fit whole','fit','contain',c.fit==='contain')}</div>`;
+  return h+`<h3>Crop · rotate · flip</h3><div class="chips">${B('↻ Rotate','rot')}${B('↔ Mirror','flip')}${B('↕ Flip','flipV')}${B('Reset','resetCrop')}</div>`+rng('Crop zoom','clip','zoom',1,3,.01,c.zoom,'x')+rng('Move X','clip','px',-1,1,.01,c.px,'n2')+rng('Move Y','clip','py',-1,1,.01,c.py,'n2')}
+function pMotion(){const c=S.sel;if(!c)return noSel;
+  return`<h3>Clip animation</h3><div class="chips">${MOTIONS.map(m=>chip(m,'motion',m,c.motion===m)).join('')}</div><div class="chips">${B('Apply to all clips','motionAll')}</div>`+
+  `<h3>Transition to next clip</h3><div class="chips">${TRS.map(m=>chip(m,'tr',m,c.tr===m)).join('')}</div><div class="chips">${B('Apply to all clips','trAll')}</div>`+rng('Length','S','fade',.1,1.5,.05,S.fade,'s')}
+function pFx(){const c=S.sel;if(!c)return noSel;
+  return`<h3>Filters</h3><div class="grid">${Object.keys(FILTERS).map(k=>`<button class="fl${c.filter===k?' on':''}" data-act="filter" data-v="${k}"><div style="background-image:url(${c.thumb});filter:${FILTERS[k]||'none'}"></div>${k}</button>`).join('')}</div>`+
+  `<h3>Effects</h3><div class="chips">${FXS.map(m=>chip(m,'fx',m,c.fx===m)).join('')}</div><div class="chips">${B('Apply look to all clips','fxAll')}</div>`+
+  `<h3>Adjust</h3>`+rng('Brightness','clip','bri',40,180,1,c.bri,'p')+rng('Contrast','clip','con',40,180,1,c.con,'p')+rng('Saturation','clip','sat',0,250,1,c.sat,'p')+B('Reset adjust','resetAdj')}
+function pText(){let h=`<div class="chips">${B('+ Add text','addText','','pri')}${B('😀 Sticker','emo','',S.emo?'pri':'')}</div>`;
+  if(S.emo)h+=`<div class="emo">${EMOJI.map(e=>`<button data-act="sticker" data-v="${e}">${e}</button>`).join('')}</div>`;
+  const t=S.selText;if(!t)return h+`<p class="hint">${S.texts.length?'Tap a text chip under the timeline, or tap text on the preview.':'Add titles, captions and stickers. Drag them on the preview to move.'}</p>`;
+  const T=Math.max(total(),t.end,1);
+  return h+`<textarea data-o="text" data-k="text" rows="2">${esc(t.text)}</textarea><h3>Font</h3><div class="chips">${Object.keys(FONTS).map(f=>chip(f,'font',f,t.font===f)).join('')}</div>`+
+  `<div class="row"><span>Colour</span><input type="color" data-o="text" data-k="color" value="${t.color}"><span style="width:auto">Box</span><input type="checkbox" data-o="text" data-k="bg" ${t.bg?'checked':''}><input type="color" data-o="text" data-k="bgc" value="${t.bgc}"></div>`+
+  `<div class="row"><span>Outline</span><input type="checkbox" data-o="text" data-k="stroke" ${t.stroke?'checked':''}><input type="color" data-o="text" data-k="strokeC" value="${t.strokeC}"></div>`+
+  rng('Size','text','size',20,260,1,t.size,'n')+`<h3>Animation</h3><div class="chips">${TANIMS.map(a=>chip(a,'anim',a,t.anim===a)).join('')}</div>`+
+  `<h3>Timing</h3>`+rng('Appears','text','start',0,T.toFixed(2),.05,t.start,'s')+rng('Disappears','text','end',0,T.toFixed(2),.05,t.end,'s')+
+  `<div class="chips">${B('Start at playhead','tStart')}${B('End at playhead','tEnd')}${B('Whole video','tAll')}</div><h3>Position</h3><div class="chips">${chip('Top','tPos',.15)}${chip('Middle','tPos',.5)}${chip('Bottom','tPos',.82)}</div><div class="chips">${B('⧉ Copy','dupText')}${B('🗑 Delete','delText')}</div>`}
+function pAudio(){const T=(total()||1).toFixed(2);let h=`<div class="chips">${B('🎵 Add music / recording','addMusic','','pri')}${B(vrec?'⏹ Stop recording':'🎙 Record voiceover','voice','',vrec?'rec':'')}${S.sel&&S.sel.kind==='video'?B('🎚 Extract clip sound','extract'):''}</div>`+
+  `<h3>What plays (and exports)</h3><div class="chips">${Object.entries(MIX).map(([k,l])=>chip(l,'mix',k,S.mix===k)).join('')}</div>`+
+  `<h3>Sound animation</h3><div class="chips">${VIZ.map(v=>chip(v,'viz',v,S.viz===v)).join('')}<input type="color" data-o="S" data-k="vizC" value="${S.vizC}"></div>`;
+  if(!S.audios.length)h+=`<p class="hint">Add a song, record a voiceover, or extract a clip's sound to edit it as a track. Voiceover starts at the playhead while the video plays.</p>`;
+  return h+'<div class="list">'+S.audios.map((a,i)=>`<div class="item"><div class="top"><b>${a.kind==='voice'?'🎙':'🎵'} ${esc(a.name)}</b>${B(a.kind==='voice'?'→ music':'→ voice','swapKind',i)}${B('🗑','delAudio',i)}</div>`+rng('Volume','au'+i,'vol',0,1.5,.05,a.vol,'p100')+rng('Starts at','au'+i,'at',0,T,.05,a.at,'s')+
+   rng('Track from','au'+i,'off',0,(a.el.duration||a.dur||0).toFixed(1),.5,a.off,'s')+`<div class="row"><span>Voice effect</span><div class="chips" style="margin:0">${VFX.map(f=>chip(f,'vfx',i+':'+f,a.fx===f)).join('')}</div></div>`+
+   `<div class="row" style="flex-wrap:wrap"><span style="width:auto">Loop</span><input type="checkbox" data-o="au${i}" data-k="loop" ${a.loop?'checked':''}><span style="width:auto">Fade in</span><input type="checkbox" data-o="au${i}" data-k="fadeIn" ${a.fadeIn?'checked':''}><span style="width:auto">Fade out</span><input type="checkbox" data-o="au${i}" data-k="fadeOut" ${a.fadeOut?'checked':''}>${a.kind==='music'?`<span style="width:auto">Lower under voice</span><input type="checkbox" data-o="au${i}" data-k="duck" ${a.duck?'checked':''}>`:''}</div></div>`).join('')+'</div>'}
+function pFormat(){return`<h3>Aspect ratio</h3><div class="chips">${[['9:16','9:16 Reels / Shorts'],['1:1','1:1 Square'],['4:5','4:5 Post'],['16:9','16:9 YouTube']].map(([k,l])=>chip(l,'ratio',k,S.ratio===k)).join('')}</div>`+
+  `<h3>Background (for “Fit whole” clips)</h3><div class="chips">${chip('Blurred video','bgMode','blur',S.bgMode==='blur')}${chip('Solid colour','bgMode','color',S.bgMode==='color')}<input type="color" data-o="S" data-k="bg" value="${S.bg}"></div>`}
+function pExport(){const T=total();return`<h3>Quality</h3><div class="chips">${chip('720p · faster','q','720',S.q==='720')}${chip('1080p · sharper','q','1080',S.q==='1080')}</div><p class="hint">Length ${fmt(T)} · ${W}×${H}. Export plays your video once in real time, so it takes about ${Math.ceil(T)} seconds. Keep the screen on. Then tap “Save to phone” to put it in your gallery, or Share to send it to WhatsApp or Instagram.</p>${B('⬇️ Export video','export','','pri')}`}
+const PANELS={media:pMedia,edit:pEdit,motion:pMotion,fx:pFx,text:pText,audio:pAudio,format:pFormat,export:pExport};
+const TABS=[['media','🎞️','Media'],['edit','✂️','Edit'],['motion','✨','Motion'],['fx','🎨','Effects'],['text','🔤','Text'],['audio','🎵','Audio'],['format','📐','Format'],['export','⬇️','Export']];
+tabs.innerHTML=TABS.map(([k,i,l])=>`<button data-tab="${k}"><i>${i}</i>${l}</button>`).join('');
+tabs.onclick=e=>{const b=e.target.closest('button');if(b){S.tab=b.dataset.tab;renderPanel()}};
+let lastTab='';
+function renderPanel(){tabs.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.tab===S.tab));const st=panel.scrollTop;panel.innerHTML=PANELS[S.tab]();if(lastTab===S.tab)panel.scrollTop=st;lastTab=S.tab}
+function renderTL(){tl.innerHTML=S.clips.map((c,i)=>`<div class="clip${c===S.sel?' sel':''}" data-i="${i}" style="width:${Math.round(clamp(clen(c)*22,56,240))}px;background-image:url(${c.thumb})"><span>${c.kind==='image'?'🖼 ':''}${fmt(clen(c))}${c.speed!=1?' · '+(+c.speed).toFixed(2).replace(/\.?0+$/,'')+'×':''}</span>${i<S.clips.length-1&&c.tr!=='None'?'<em>⋈</em>':''}</div>`).join('')+`<button class="addc" data-add>+</button>`;
+  $('#txtrow').innerHTML=S.texts.map(t=>`<div class="tchip${t===S.selText?' sel':''}" data-t="${t.id}">T · ${esc(t.text)}</div>`).join('')+S.audios.map(a=>`<div class="tchip au" data-a="1">${a.kind==='voice'?'🎙':'♪'} ${esc(a.name)}</div>`).join('')}
+function renderAll(){renderTL();renderPanel();if(!S.playing)showFrame(S.t);else updTime();autosave()}
+
+/* ---------- actions ---------- */
+function addText(txt){push();const t={id:uid++,text:txt||'Your text',font:'Sans',color:'#ffffff',bg:false,bgc:'#000000',stroke:false,strokeC:'#000000',size:txt?170:80,anim:txt?'Pop':'Fade',x:.5,y:txt?.4:.5,start:S.t,end:S.t+3};S.texts.push(t);S.selText=t;S.tab='text'}
+async function freeze(){const a=clipAt(S.t);if(!a||a.c.kind!=='video')return;const c=a.c,el=c.el,k=document.createElement('canvas');k.width=el.videoWidth;k.height=el.videoHeight;k.getContext('2d').drawImage(el,0,0);
+  const blob=await new Promise(r=>k.toBlob(r,'image/jpeg',.92)),fid=newFid();DB.put('files',fid,blob).catch(()=>{});const img=await loadImage(URL.createObjectURL(blob));push();
+  const L=clen(c);let idx=a.i+1;if(a.local>.15&&L-a.local>.15){const cut=c.start+a.local*c.speed,n={...c,id:uid++,start:cut};c.end=cut;S.clips.splice(a.i+1,0,n)}else if(a.local<=.15)idx=a.i;
+  const f=mk({kind:'image',el:img,fid,name:'Freeze frame',dur:15,end:2,thumb:thumbOf(img,img.naturalWidth,img.naturalHeight)});
+  ['fit','filter','bri','con','sat','rot','flip','flipV','zoom','px','py','fx'].forEach(p=>f[p]=c[p]);f.motion='None';f.tr='None';S.clips.splice(idx,0,f);S.sel=f}
+const A={
+  add:()=>fileIn.click(),
+  newProj:()=>ask('Start a new project?','This removes the current clips, text and music from the app. Exported videos stay in your gallery.','Start new',newProject),
+  split(){const a=clipAt(S.t);if(!a)return;const c=a.c,L=clen(c);if(a.local<.15||L-a.local<.15){note('Move the playhead inside the clip to split it');return}push();
+    const n={...c,id:uid++};if(c.kind==='image'){n.end=L-a.local;c.end=a.local}else{const cut=c.start+a.local*c.speed;n.start=cut;c.end=cut}S.clips.splice(a.i+1,0,n);S.sel=n},
+  freeze,
+  dup(){push();const i=S.clips.indexOf(S.sel),n={...S.sel,id:uid++};S.clips.splice(i+1,0,n);S.sel=n},
+  left(){const i=S.clips.indexOf(S.sel);if(i>0){push();[S.clips[i-1],S.clips[i]]=[S.clips[i],S.clips[i-1]];S.t=startOf(i-1)}},
+  right(){const i=S.clips.indexOf(S.sel);if(i>-1&&i<S.clips.length-1){push();[S.clips[i+1],S.clips[i]]=[S.clips[i],S.clips[i+1]];S.t=startOf(i+1)}},
+  del(){push();const i=S.clips.indexOf(S.sel);S.clips.splice(i,1);S.sel=S.clips[Math.min(i,S.clips.length-1)]||null;S.t=Math.min(S.t,total())},
+  speed:v=>{push();S.sel.speed=+v;S.t=startOf(S.clips.indexOf(S.sel))},
+  mute(){push();S.sel.vol=S.sel.vol?0:1},
+  fit:v=>{push();S.sel.fit=v},
+  rot(){push();S.sel.rot=((S.sel.rot||0)+90)%360},flip(){push();S.sel.flip=!S.sel.flip},flipV(){push();S.sel.flipV=!S.sel.flipV},
+  resetCrop(){push();Object.assign(S.sel,{rot:0,flip:false,flipV:false,zoom:1,px:0,py:0})},
+  motion:v=>{push();S.sel.motion=v;S.t=startOf(S.clips.indexOf(S.sel));if(!S.playing)play()},
+  motionAll(){push();S.clips.forEach(c=>c.motion=S.sel.motion)},
+  tr:v=>{push();S.sel.tr=v;const i=S.clips.indexOf(S.sel);if(i<S.clips.length-1){S.t=Math.max(0,startOf(i+1)-S.fade-.3);play()}},
+  trAll(){push();S.clips.forEach(c=>c.tr=S.sel.tr)},
+  filter:v=>{push();S.sel.filter=v},fx:v=>{push();S.sel.fx=v},
+  fxAll(){push();const s=S.sel;S.clips.forEach(c=>Object.assign(c,{filter:s.filter,fx:s.fx,bri:s.bri,con:s.con,sat:s.sat}))},
+  resetAdj(){push();Object.assign(S.sel,{bri:100,con:100,sat:100})},
+  addText:()=>addText(),emo(){S.emo=!S.emo},sticker:v=>addText(v),
+  font:v=>{push();S.selText.font=v},anim:v=>{push();S.selText.anim=v;S.t=S.selText.start;if(!S.playing)play()},
+  tStart(){push();const t=S.selText;t.start=S.t;if(t.end<=S.t)t.end=S.t+2},
+  tEnd(){push();const t=S.selText;t.end=Math.max(S.t,t.start+.2)},
+  tAll(){push();S.selText.start=0;S.selText.end=Math.max(total(),.5)},
+  tPos:v=>{push();S.selText.y=+v;S.selText.x=.5},
+  dupText(){push();const t={...S.selText,id:uid++,y:Math.min(.95,S.selText.y+.08)};S.texts.push(t);S.selText=t},
+  delText(){push();S.texts.splice(S.texts.indexOf(S.selText),1);S.selText=null},
+  addMusic:()=>audIn.click(),voice:toggleVoice,
+  delAudio:v=>{push();const a=S.audios.splice(+v,1)[0];a.el.pause()},
+  extract:extractAudio,mix:v=>{S.mix=v;if(!S.playing)play()},viz:v=>{S.viz=v;if(v!=='None'&&!S.playing)play()},
+  swapKind:v=>{push();const a=S.audios[+v];a.kind=a.kind==='voice'?'music':'voice'},
+  vfx:v=>{push();const[i,f]=v.split(':');const a=S.audios[+i];a.fx=f;S.t=a.at;if(!S.playing)play()},
+  ratio:v=>{push();S.ratio=v;setSize()},bgMode:v=>{push();S.bgMode=v},q:v=>{S.q=v;setSize()},
+  export:exportVideo
+};
+const KEEP_PLAY=['voice','mix','viz'];
+panel.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(!t)return;const f=A[t.dataset.act];if(!f)return;if(S.playing&&!KEEP_PLAY.includes(t.dataset.act))pause();Promise.resolve(f(t.dataset.v)).then(renderAll)});
+function obj(o){if(o==='clip')return S.sel;if(o==='text')return S.selText;if(o==='S')return S;if(o&&o.startsWith('au'))return S.audios[+o.slice(2)]}
+panel.addEventListener('input',e=>{const el=e.target,k=el.dataset.k,on=el.dataset.o;if(!k)return;const o=obj(on);if(!o)return;mark();
+  o[k]=el.type==='checkbox'?el.checked:(el.type==='range'?+el.value:el.value);
+  if(on==='clip'&&o.kind==='video'){if(k==='start'&&o.start>o.end-.1){o.start=Math.max(0,o.end-.1);el.value=o.start}if(k==='end'&&o.end<o.start+.1){o.end=o.start+.1;el.value=o.end}}
+  if(on==='text'&&k==='end'&&o.end<o.start+.1){o.end=o.start+.1;el.value=o.end}
+  if(on.startsWith('au')){if(k==='loop')o.el.loop=o.loop;if(k==='vol'&&o.el._g)o.el._g.gain.value=o.vol*mixGain(o.kind)}
+  if(on==='clip'&&k==='vol'&&o.el._g)o.el._g.gain.value=o.vol*mixGain('orig');
+  const out=el.nextElementSibling;if(out&&out.tagName==='OUTPUT')out.textContent=F[el.dataset.f](o[k]);
+  if(on==='clip'&&['start','end','speed'].includes(k)){if(S.playing)pause();renderTL();const i=S.clips.indexOf(o);S.t=k==='end'?startOf(i)+clen(o)-.05:startOf(i)}
+  if(on==='text'&&(k==='start'||k==='end')){if(S.playing)pause();S.t=o[k]}
+  if(on==='text'&&k==='text')renderTL();
+  if(!S.playing)showFrame(S.t);else updTime();autosave()});
+
+/* ---------- timeline, controls, canvas drag ---------- */
+tl.onclick=e=>{if(e.target.closest('[data-add]'))return fileIn.click();const d=e.target.closest('.clip');if(!d)return;if(S.playing)pause();const i=+d.dataset.i;S.sel=S.clips[i];S.t=startOf(i)+.01;if(!['edit','motion','fx'].includes(S.tab))S.tab='edit';renderAll()};
+$('#txtrow').onclick=e=>{const tc=e.target.closest('[data-t]');if(tc){if(S.playing)pause();S.selText=S.texts.find(t=>t.id==tc.dataset.t);S.t=S.selText.start+.01;S.tab='text';renderAll()}else if(e.target.closest('[data-a]')){S.tab='audio';renderPanel()}};
+playb.onclick=()=>S.playing?pause():play();
+scrub.oninput=()=>{if(S.playing)pause();showFrame(+scrub.value)};
+$('#undoB').onclick=()=>{undo();renderAll()};
+$('#expB').onclick=()=>{S.tab='export';renderPanel()};
+fileIn.onchange=()=>{const fs=[...fileIn.files];fileIn.value='';addFiles(fs)};
+audIn.onchange=async()=>{const fs=[...audIn.files];audIn.value='';if(!fs.length)return;push();const bad=[];for(const f of fs){const a=await makeAudio(f,f.name.replace(/\.[^.]+$/,''),/rec|voice|audio_|ptt/i.test(f.name)?'voice':'music');if(!a.el.duration){bad.push(f.name);continue}a.el.loop=a.loop;S.audios.push(a)}S.tab='audio';renderAll();if(bad.length)note('Could not play: '+bad.join(', ')+'. Try an MP3 or M4A copy.')};
+let drag=null,downAt=null;
+const cpos=e=>{const r=cv.getBoundingClientRect();return{x:(e.clientX-r.left)*W/r.width,y:(e.clientY-r.top)*H/r.height}};
+cv.addEventListener('pointerdown',e=>{const p=cpos(e),pad=W*.03;downAt=p;const hit=[...S.texts].reverse().find(t=>t._box&&p.x>=t._box[0]-pad&&p.x<=t._box[0]+t._box[2]+pad&&p.y>=t._box[1]-pad&&p.y<=t._box[1]+t._box[3]+pad);
+  if(hit){if(S.playing)pause();mark();S.selText=hit;drag={t:hit,dx:p.x-hit.x*W,dy:p.y-hit.y*H};cv.setPointerCapture(e.pointerId);S.tab='text';renderTL();renderPanel()}});
+cv.addEventListener('pointermove',e=>{if(!drag)return;const p=cpos(e);drag.t.x=clamp((p.x-drag.dx)/W,0,1);drag.t.y=clamp((p.y-drag.dy)/H,0,1);draw()});
+cv.addEventListener('pointerup',e=>{const p=cpos(e);if(drag)autosave();else if(downAt&&Math.hypot(p.x-downAt.x,p.y-downAt.y)<W*.02)S.playing?pause():play();drag=null;downAt=null});
+document.addEventListener('keydown',e=>{if(e.code==='Space'&&e.target.tagName!=='TEXTAREA'){e.preventDefault();S.playing?pause():play()}});
+
+setSize();renderAll();
+(async()=>{try{const p=await DB.get('proj','current');if(p&&p.clips&&p.clips.length){showOv('Continue your last project?',`${p.clips.length} clip(s) saved on this phone.`,false);$('#ovA').append(btn('Continue',()=>loadProject(p),'btn pri'),btn('Start new',()=>{hideOv();newProject()}))}}catch(e){}})();
+if('serviceWorker'in navigator&&location.protocol==='https:')navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
