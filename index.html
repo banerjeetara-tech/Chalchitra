@@ -94,7 +94,8 @@ const FONTS={Sans:'system-ui,sans-serif',Serif:'Georgia,serif',Bold:'Impact,"Ari
 const MOTIONS=['None','Zoom in','Zoom out','Pan left','Pan right','Shake','Rotate in','Bounce in','Pulse','3D flip','3D tilt','3D swing','Float'];
 const GENS=['Gradient','Confetti','Particles','Synthwave 3D','Bokeh','Rays','Solid'];
 const TRS=['None','Fade','Flash','Zoom','Slide','Wipe','Spin','Blur','3D flip','3D cube'];
-const FXS=['None','Vignette','Cinema bars','Grain','Old film','Light leak','Glitch','VHS','Glow'];
+const OVERLAYS=['Hearts','Snow','Sparkles','Stars','Confetti rain','Bubbles'];
+const FXS=['None','Hearts','Snow','Sparkles','Stars','Confetti rain','Bubbles','Vignette','Cinema bars','Grain','Old film','Light leak','Glitch','VHS','Glow'];
 const TANIMS=['None','Fade','Pop','Slide','Bounce','Zoom','Shake','Typewriter','3D spin'];
 const EMOJI=['😀','😂','😍','🥰','😎','🤩','😭','😡','👍','👏','🙏','💪','🔥','✨','⭐','💯','❤️','💔','🎉','🎂','🎁','🌸','🌹','☀️','🌙','⚡','🌈','🍕','☕','🎵','📍','✈️','🏆','👑','💡','➡️'];
 const F={s:v=>(+v).toFixed(1)+'s',p:v=>Math.round(v)+'%',p100:v=>Math.round(v*100)+'%',n:v=>Math.round(v),x:v=>(+v).toFixed(2)+'×',n2:v=>(+v).toFixed(2)};
@@ -103,7 +104,8 @@ const VFX=['None','Deep','Chipmunk','Echo','Hall','Radio','Phone','Robot'],VIZ=[
 let W=0,H=0,uid=1,cur=null,raf=0,lastTs=0,AC=null,recDest=null,rec=null,chunks=[],vrec=null,wake=null,grain=null;
 
 const clen=c=>Math.max(.1,(c.end-c.start)/c.speed);
-const total=()=>S.clips.reduce((a,c)=>a+clen(c),0);
+const audioEnd=()=>S.audios.reduce((m,a)=>{const d=a.el.duration||a.dur||0;return Math.max(m,a.at+Math.max(0,((a.to||d)-a.off)/fxRate(a.fx)))},0);
+const total=()=>S.clips.reduce((a,c)=>a+clen(c),0)||audioEnd();
 const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));
 const fmt=s=>{s=Math.max(0,s);const m=Math.floor(s/60);return m+':'+(s%60).toFixed(1).padStart(4,'0')};
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -138,19 +140,25 @@ function undo(){const h=hist.pop();if(!h)return;pause();const sid=S.sel&&S.sel.i
 /* ---------- audio graph ---------- */
 let master=null,ana=null,anaBuf=null;
 function audioInit(){if(AC)return;AC=new(window.AudioContext||window.webkitAudioContext)();recDest=AC.createMediaStreamDestination();master=AC.createGain();ana=AC.createAnalyser();ana.fftSize=256;ana.smoothingTimeConstant=.8;anaBuf=new Uint8Array(ana.frequencyBinCount);master.connect(ana);master.connect(AC.destination);master.connect(recDest)}
-function hook(el){audioInit();if(el._g)return el._g;const src=AC.createMediaElementSource(el),g=AC.createGain();src.connect(g);g.connect(master);el._g=g;el._src=src;el._fx='None';return g}
-/* voice effects: rebuild the chain between source and gain */
-function applyVoiceFx(a){const el=a.el,g=hook(el);if(el._fx===a.fx)return;el._src.disconnect();if(el._chain)el._chain.forEach(n=>{try{n.disconnect()}catch(e){}});el._chain=[];el.playbackRate=1;el.preservesPitch=true;
-  const mk=(type,o)=>{const n=AC[type]();Object.assign(n,o||{});el._chain.push(n);return n};let last=el._src;
-  switch(a.fx){case'Deep':el.preservesPitch=false;el.playbackRate=.8;break;case'Chipmunk':el.preservesPitch=false;el.playbackRate=1.3;break;
-    case'Echo':{const d=mk('createDelay'),fb=mk('createGain',{gain:.4});d.delayTime.value=.28;last.connect(d);d.connect(fb);fb.connect(d);d.connect(g);break}
-    case'Hall':{const d=mk('createDelay'),fb=mk('createGain',{gain:.55}),lp=mk('createBiquadFilter',{type:'lowpass'});lp.frequency.value=2500;d.delayTime.value=.09;last.connect(d);d.connect(lp);lp.connect(fb);fb.connect(d);d.connect(g);break}
-    case'Radio':{const hp=mk('createBiquadFilter',{type:'highpass'}),lp=mk('createBiquadFilter',{type:'lowpass'}),ws=mk('createWaveShaper');hp.frequency.value=600;lp.frequency.value=2800;const wc=new Float32Array(256);for(let i=0;i<256;i++){const x=i/128-1;wc[i]=Math.tanh(x*3)}ws.curve=wc;last.connect(hp);hp.connect(ws);ws.connect(lp);lp.connect(g);last=null;break}
-    case'Robot':{const r=mk('createOscillator',{type:'square'}),rg=mk('createGain',{gain:0});r.frequency.value=50;r.connect(rg.gain);r.start();last.connect(rg);rg.connect(g);last=null;break}
-    case'Phone':{const bp=mk('createBiquadFilter',{type:'bandpass'});bp.frequency.value=1500;bp.Q.value=1.2;last.connect(bp);bp.connect(g);last=null;break}}
-  if(last)last.connect(g);el._fx=a.fx}
+function hook(el){audioInit();if(el._g)return el._g;const src=AC.createMediaElementSource(el),g=AC.createGain();src.connect(g);g.connect(master);el._g=g;el._src=src;el._fx='';return g}
+/* audio chain: song part (vocals / instrumental) + voice effect; used live and for MP3 export */
+function buildChain(ctx,src,dest,part,fx){const N=[],mk=(t,type)=>{const n=ctx[t]();if(type)n.type=type;N.push(n);return n};let last=src;
+  if(part==='vocals'||part==='inst'){const sp=mk('createChannelSplitter'),l=mk('createGain'),r=mk('createGain'),sum=mk('createGain');l.gain.value=.5;r.gain.value=part==='inst'?-.5:.5;last.connect(sp);sp.connect(l,0);sp.connect(r,1);l.connect(sum);r.connect(sum);last=sum;
+    if(part==='vocals'){const hp=mk('createBiquadFilter','highpass'),lp=mk('createBiquadFilter','lowpass'),pk=mk('createBiquadFilter','peaking');hp.frequency.value=180;lp.frequency.value=6500;pk.frequency.value=2200;pk.gain.value=5;last.connect(hp);hp.connect(lp);lp.connect(pk);last=pk}
+    else{const g2=mk('createGain');g2.gain.value=1.6;last.connect(g2);last=g2}}
+  switch(fx){
+    case'Echo':{const d=mk('createDelay'),fb=mk('createGain');fb.gain.value=.4;d.delayTime.value=.28;last.connect(d);d.connect(fb);fb.connect(d);d.connect(dest);break}
+    case'Hall':{const d=mk('createDelay'),fb=mk('createGain'),lp=mk('createBiquadFilter','lowpass');fb.gain.value=.5;lp.frequency.value=2500;d.delayTime.value=.09;last.connect(d);d.connect(lp);lp.connect(fb);fb.connect(d);d.connect(dest);break}
+    case'Radio':{const hp=mk('createBiquadFilter','highpass'),lp=mk('createBiquadFilter','lowpass'),ws=mk('createWaveShaper');hp.frequency.value=600;lp.frequency.value=2800;const wc=new Float32Array(256);for(let i=0;i<256;i++)wc[i]=Math.tanh((i/128-1)*3);ws.curve=wc;last.connect(hp);hp.connect(ws);ws.connect(lp);lp.connect(dest);last=null;break}
+    case'Robot':{const o=mk('createOscillator','square'),rg=mk('createGain');rg.gain.value=0;o.frequency.value=50;o.connect(rg.gain);o.start();last.connect(rg);rg.connect(dest);last=null;break}
+    case'Phone':{const bp=mk('createBiquadFilter','bandpass');bp.frequency.value=1500;bp.Q.value=1.2;last.connect(bp);bp.connect(dest);last=null;break}}
+  if(last)last.connect(dest);return N}
+const fxRate=fx=>fx==='Deep'?.8:fx==='Chipmunk'?1.3:1;
+function applyVoiceFx(a){const el=a.el,g=hook(el),key=(a.fx||'None')+'|'+(a.part||'full');if(el._fx===key)return;try{el._src.disconnect()}catch(e){}
+  (el._chain||[]).forEach(n=>{try{n.disconnect();if(n.stop)n.stop()}catch(e){}});el.preservesPitch=fxRate(a.fx)===1;el.playbackRate=fxRate(a.fx);el._chain=buildChain(AC,el._src,g,a.part,a.fx);el._fx=key}
 /* mix modes: what plays & exports */
-const MIX={all:'All sound',voice:'Voice only',music:'Music only',orig:'Original clip sound only',mute:'Mute everything'};
+const MIX={all:'Play everything',voice:'Only voice tracks',music:'Only music tracks',orig:'Only video sound',mute:'Mute all'};
+const PARTS={full:'Full song',vocals:'🎤 Vocals only',inst:'🎸 Music only (no vocals)'};
 function mixGain(kind){const m=S.mix||'all';if(m==='mute')return 0;if(m==='all')return 1;return(m===kind)?1:0}
 function levels(){if(!ana)return null;ana.getByteFrequencyData(anaBuf);return anaBuf}
 
@@ -203,10 +211,17 @@ function drawFX(c,local){const fx=c.fx;if(!fx||fx==='None')return;cx.save();
   if(fx==='Light leak'){const x=W*(.5+.5*Math.sin(local*.8)),g=cx.createRadialGradient(x,H*.2,0,x,H*.2,W*.9);g.addColorStop(0,'rgba(255,150,60,.55)');g.addColorStop(1,'rgba(255,80,0,0)');cx.globalCompositeOperation='screen';cx.fillStyle=g;cx.fillRect(0,0,W,H)}
   if(fx==='Glitch'&&Math.random()<.5){for(let i=0;i<5;i++){const y=Math.random()*H,h=H*(.02+Math.random()*.06),dx=(Math.random()-.5)*W*.08;cx.drawImage(cv,0,y,W,h,dx,y,W,h)}cx.globalCompositeOperation='screen';cx.globalAlpha=.25;cx.drawImage(cv,W*.012,0)}
   if(fx==='VHS'){cx.fillStyle='rgba(0,0,0,.18)';for(let y=(local*60)%4;y<H;y+=4)cx.fillRect(0,y,W,1.5);cx.globalCompositeOperation='screen';cx.globalAlpha=.15;cx.drawImage(cv,-W*.006,0)}
+  if(OVERLAYS.includes(fx)){const n=fx==='Snow'?70:36,k=W/1080;cx.textAlign='center';cx.textBaseline='middle';
+    for(let i=0;i<n;i++){const sp=.08+rnd(i+1)*.18,ph=(rnd(i+2)+local*sp)%1,x=rnd(i)*W+Math.sin(local*1.5+i)*W*.03,sz=(28+rnd(i+3)*44)*k,y=(fx==='Hearts'||fx==='Bubbles')?H*(1.05-ph*1.1):H*(ph*1.1-.05);
+      cx.globalAlpha=fx==='Bubbles'?.55:.9;
+      switch(fx){case'Hearts':cx.font=`${sz}px system-ui`;cx.fillText('❤️',x,y);break;case'Snow':cx.fillStyle='#fff';cx.beginPath();cx.arc(x,y,sz*.12,0,7);cx.fill();break;
+        case'Sparkles':cx.globalAlpha=Math.abs(Math.sin(local*4+i));cx.font=`${sz*.8}px system-ui`;cx.fillText('✨',x,y);break;case'Stars':cx.globalAlpha=Math.abs(Math.sin(local*3+i));cx.font=`${sz*.7}px system-ui`;cx.fillText('⭐',x,y);break;
+        case'Bubbles':cx.strokeStyle='#fff';cx.lineWidth=2*k;cx.beginPath();cx.arc(x,y,sz*.4,0,7);cx.stroke();break;
+        case'Confetti rain':cx.save();cx.translate(x,y);cx.rotate(local*3+i);cx.fillStyle=['#ff5a5f','#ffd166','#06d6a0','#4cc9f0','#f72585'][i%5];cx.fillRect(-sz*.25,-sz*.1,sz*.5,sz*.2);cx.restore()}}}
   if(fx==='Glow'){cx.globalCompositeOperation='screen';cx.globalAlpha=.35;cx.filter='blur(12px)';cx.drawImage(cv,0,0)}
   cx.restore()}
 function draw(){cx.fillStyle=S.bg;cx.fillRect(0,0,W,H);
-  if(!S.clips.length){cx.fillStyle='#8b92a3';cx.font=`${W*.045}px system-ui`;cx.textAlign='center';cx.textBaseline='middle';cx.fillText('Tap + to add videos & photos',W/2,H/2);return}
+  if(!S.clips.length){cx.fillStyle='#8b92a3';cx.font=`${W*.045}px system-ui`;cx.textAlign='center';cx.textBaseline='middle';cx.fillText(S.audios.length?'🎵 Music only · tap ▶ to play':'Tap + to add videos & photos',W/2,H/2);if(S.audios.length){const v=S.viz;S.viz=v==='None'?'Bars':v;drawViz();S.viz=v}return}
   const a=clipAt(S.t),c=a.c,tr=trState(a);
   if(c.fit==='contain'&&S.bgMode==='blur')drawClip(c,a.local,true,tr);
   drawClip(c,a.local,false,tr);drawFX(c,a.local);
@@ -261,9 +276,11 @@ function drawTexts(){const k=W/1080;for(const t of S.texts){if(S.t<t.start||S.t>
 function markCur(i){[...tl.children].forEach((d,j)=>d.classList.toggle('cur',j===i&&S.playing))}
 function startClipAt(t){const a=clipAt(t);if(!a)return;if(cur&&cur.c.kind==='video'&&cur.c.el!==a.c.el)cur.c.el.pause();cur=a;S.t=t;const c=a.c;
   if(c.kind==='video'){hook(c.el).gain.value=c.vol*mixGain('orig');c.el.playbackRate=c.speed;c.el.currentTime=c.start+a.local*c.speed;c.el.play().catch(()=>{})}markCur(a.i)}
-function play(){if(!S.clips.length)return;audioInit();AC.resume();if(S.t>=total()-.05)S.t=0;S.playing=true;cur=null;startClipAt(S.t);lastTs=performance.now();syncAudios();playb.textContent='❚❚';cancelAnimationFrame(raf);raf=requestAnimationFrame(tick)}
+function play(){if(!S.clips.length&&!S.audios.length)return;audioInit();AC.resume();if(S.t>=total()-.05)S.t=0;S.playing=true;cur=null;if(S.clips.length)startClipAt(S.t);lastTs=performance.now();syncAudios();playb.textContent='❚❚';cancelAnimationFrame(raf);raf=requestAnimationFrame(tick)}
 function pause(){S.playing=false;cancelAnimationFrame(raf);S.clips.forEach(c=>c.kind==='video'&&!c.el.paused&&c.el.pause());S.audios.forEach(a=>a.el.pause());playb.textContent='▶';markCur(-1)}
-function tick(ts){if(!S.playing)return;const dt=Math.min(.1,(ts-lastTs)/1000);lastTs=ts;const c=cur.c,L=clen(c),el=c.el;
+function tick(ts){if(!S.playing)return;const dt=Math.min(.1,(ts-lastTs)/1000);lastTs=ts;
+  if(!S.clips.length){S.t+=dt;if(S.t>=total()){S.t=total();draw();updTime();finish();return}syncAudios();draw();updTime();raf=requestAnimationFrame(tick);return}
+  const c=cur.c,L=clen(c),el=c.el;
   if(c.kind==='video'){if(el.paused&&!el.seeking&&!el.ended)S.t+=dt;else if(!el.seeking)S.t=Math.max(S.t,cur.off+(el.currentTime-c.start)/c.speed);if(el.ended||el.currentTime>=c.end-.02)S.t=cur.off+L}
   else S.t+=dt;
   if(S.t>=cur.off+L-.001){if(cur.i>=S.clips.length-1){S.t=total();draw();updTime();finish();return}startClipAt(cur.off+L+.001)}
@@ -300,12 +317,30 @@ async function exportVideo(){if(!S.clips.length){note('Add some clips first');re
   try{wake=await navigator.wakeLock.request('screen')}catch(e){}
   S.exporting=true;S.t=0;rec.start(500);play()}
 function exportDone(){if(wake){wake.release().catch(()=>{});wake=null}if(S.cancel){S.cancel=false;hideOv();return}
-  const type=(rec.mimeType||'video/webm').split(';')[0],blob=new Blob(chunks,{type}),ext=type.includes('mp4')?'mp4':'webm',url=URL.createObjectURL(blob),name=`chalchitra-${Date.now()}.${ext}`;
-  $('#ovT').textContent='Your video is ready 🎉';$('#ovP').textContent=`${(blob.size/1048576).toFixed(1)} MB · ${ext.toUpperCase()} · ${W}×${H}. Download saves it to your phone (Gallery → Downloads).`;
+  const type=(rec.mimeType||'video/webm').split(';')[0],blob=new Blob(chunks,{type}),ext=type.includes('mp4')?'mp4':'webm';showResult(blob,ext,`${W}×${H}. Saves to your phone (Gallery → Downloads).`)}
+function showResult(blob,ext,info){const type=blob.type,url=URL.createObjectURL(blob),name=`chalchitra-${Date.now()}.${ext}`;showOv(ext==='mp3'||ext==='wav'?'Your audio is ready 🎵':'Your video is ready 🎉','',false);
+  $('#ovP').textContent=`${(blob.size/1048576).toFixed(1)} MB · ${ext.toUpperCase()} · ${info}`;
   const A=$('#ovA');A.innerHTML='';const dl=document.createElement('a');dl.href=url;dl.download=name;dl.className='btn pri';dl.textContent='⬇ Save to phone';A.append(dl);
   try{const file=new File([blob],name,{type});if(navigator.canShare&&navigator.canShare({files:[file]}))A.append(btn('↗ Share',()=>navigator.share({files:[file]}).catch(()=>{})))}catch(e){}
   A.append(btn('Close',hideOv))}
 
+function loadLame(){return window.lamejs?Promise.resolve():new Promise((r,j)=>{const sc=document.createElement('script');sc.src='https://cdnjs.cloudflare.com/ajax/libs/lamejs/1.2.1/lame.min.js';sc.onload=r;sc.onerror=j;document.head.append(sc)})}
+function toWav(buf){const n=buf.length,ch=2,b=new ArrayBuffer(44+n*ch*2),v=new DataView(b),w=(o,s)=>[...s].forEach((c,i)=>v.setUint8(o+i,c.charCodeAt(0)));w(0,'RIFF');v.setUint32(4,36+n*ch*2,true);w(8,'WAVEfmt ');v.setUint32(16,16,true);v.setUint16(20,1,true);v.setUint16(22,ch,true);v.setUint32(24,buf.sampleRate,true);v.setUint32(28,buf.sampleRate*ch*2,true);v.setUint16(32,ch*2,true);v.setUint16(34,16,true);w(36,'data');v.setUint32(40,n*ch*2,true);
+  const L=buf.getChannelData(0),Rr=buf.getChannelData(1);let o=44;for(let i=0;i<n;i++){for(const d of[L,Rr]){const x=Math.max(-1,Math.min(1,d[i]));v.setInt16(o,x<0?x*32768:x*32767,true);o+=2}}return new Blob([b],{type:'audio/wav'})}
+async function exportMp3(){const T=total();if(!T){note('Add music or clips first');return}pause();showOv('Making your MP3…','Mixing the sound. This is quicker than real time.');
+  const sr=44100,oc=new OfflineAudioContext(2,Math.ceil(T*sr),sr),dec={};
+  const decode=async(fid,url)=>{if(dec[fid])return dec[fid];let blob=fid?await DB.get('files',fid):null;if(!blob)blob=await(await fetch(url)).blob();return dec[fid]=await oc.decodeAudioData(await blob.arrayBuffer())};
+  for(let i=0;i<S.clips.length;i++){const c=S.clips[i];if(c.kind!=='video'||!c.vol||!mixGain('orig'))continue;try{const b=await decode(c.fid,c.el.src),s=oc.createBufferSource(),g=oc.createGain();s.buffer=b;s.playbackRate.value=c.speed;g.gain.value=c.vol;s.connect(g);g.connect(oc.destination);const at=startOf(i);s.start(at,c.start);s.stop(at+clen(c))}catch(e){}}
+  for(const a of S.audios){const mg=mixGain(a.kind);if(!mg||!a.vol)continue;try{const b=await decode(a.fid,a.el.src),s=oc.createBufferSource(),g=oc.createGain(),rate=fxRate(a.fx),v=a.vol*mg;s.buffer=b;s.playbackRate.value=rate;
+    if(a.loop){s.loop=true;s.loopEnd=b.duration}const end=Math.min(T,a.loop?T:a.at+((a.to||b.duration)-a.off)/rate);
+    g.gain.setValueAtTime(a.fadeIn?0:v,a.at);if(a.fadeIn)g.gain.linearRampToValueAtTime(v,a.at+2);if(a.fadeOut&&end-a.at>4){g.gain.setValueAtTime(v,end-2);g.gain.linearRampToValueAtTime(0,end)}
+    buildChain(oc,s,g,a.part,a.fx);g.connect(oc.destination);s.start(a.at,a.off);s.stop(end)}catch(e){}}
+  const buf=await oc.startRendering();
+  try{await loadLame()}catch(e){showResult(toWav(buf),'wav','The MP3 maker needs internet the first time, so this is a WAV file instead.');return}
+  $('#ovT').textContent='Encoding MP3…';const toI=f=>{const o=new Int16Array(f.length);for(let i=0;i<f.length;i++){const x=Math.max(-1,Math.min(1,f[i]));o[i]=x<0?x*32768:x*32767}return o};
+  const l=toI(buf.getChannelData(0)),r=toI(buf.getChannelData(1)),enc=new lamejs.Mp3Encoder(2,sr,192),blk=1152,out=[];
+  for(let i=0;i<l.length;i+=blk){const m=enc.encodeBuffer(l.subarray(i,i+blk),r.subarray(i,i+blk));if(m.length)out.push(m);if(i%(blk*300)===0){$('#ovBar').style.width=(i/l.length*100)+'%';await new Promise(z=>setTimeout(z))}}
+  const e=enc.flush();if(e.length)out.push(e);showResult(new Blob(out,{type:'audio/mpeg'}),'mp3',fmt(T)+' · 192 kbps')}
 /* ---------- overlay ---------- */
 function btn(l,f,cls='btn'){const x=document.createElement('button');x.className=cls;x.textContent=l;x.onclick=f;return x}
 function showOv(t,p,bar=true){$('#ovT').textContent=t;$('#ovP').textContent=p||'';$('#ovBar').style.width='0';$('#ovB').style.display=bar?'':'none';$('#ovA').innerHTML='';$('#ov').style.display='flex'}
@@ -344,22 +379,23 @@ function pText(){let h=`<div class="chips">${B('+ Add text','addText','','pri')}
   rng('Size','text','size',20,260,1,t.size,'n')+`<h3>Animation</h3><div class="chips">${TANIMS.map(a=>chip(a,'anim',a,t.anim===a)).join('')}</div>`+
   `<h3>Timing</h3>`+rng('Appears','text','start',0,T.toFixed(2),.05,t.start,'s')+rng('Disappears','text','end',0,T.toFixed(2),.05,t.end,'s')+
   `<div class="chips">${B('Start at playhead','tStart')}${B('End at playhead','tEnd')}${B('Whole video','tAll')}</div><h3>Position</h3><div class="chips">${chip('Top','tPos',.15)}${chip('Middle','tPos',.5)}${chip('Bottom','tPos',.82)}</div><div class="chips">${B('⧉ Copy','dupText')}${B('🗑 Delete','delText')}</div>`}
-function pAudio(){const T=(total()||1).toFixed(2);let h=`<div class="chips">${B('🎵 Add music / recording','addMusic','','pri')}${B(vrec?'⏹ Stop recording':'🎙 Record voiceover','voice','',vrec?'rec':'')}${S.sel&&S.sel.kind==='video'?B('🎚 Extract clip sound','extract'):''}</div>`+
+function pAudio(){const T=(total()||1).toFixed(2);let h=`<div class="chips">${B('🎵 Add music / recording','addMusic','','pri')}${B(vrec?'⏹ Stop recording':'🎙 Record voiceover','voice','',vrec?'rec':'')}${S.sel&&S.sel.kind==='video'?B('🎚 Extract clip sound','extract'):''}${S.audios.length||S.clips.length?B('⬇️ Download MP3','mp3'):''}</div><p class="hint">Music works on its own too: just add a song and tap ▶. To hear only the singing or only the music, use the buttons on each track below. They work best on normal stereo songs.</p>`+
   `<h3>What plays (and exports)</h3><div class="chips">${Object.entries(MIX).map(([k,l])=>chip(l,'mix',k,S.mix===k)).join('')}</div>`+
   `<h3>Sound animation</h3><div class="chips">${VIZ.map(v=>chip(v,'viz',v,S.viz===v)).join('')}<input type="color" data-o="S" data-k="vizC" value="${S.vizC}"></div>`;
   if(!S.audios.length)h+=`<p class="hint">Add a song, record a voiceover, or extract a clip's sound to edit it as a track. Voiceover starts at the playhead while the video plays.</p>`;
   return h+'<div class="list">'+S.audios.map((a,i)=>`<div class="item"><div class="top"><b>${a.kind==='voice'?'🎙':'🎵'} ${esc(a.name)}</b>${B(a.kind==='voice'?'→ music':'→ voice','swapKind',i)}${B('🗑','delAudio',i)}</div>`+rng('Volume','au'+i,'vol',0,1.5,.05,a.vol,'p100')+rng('Starts at','au'+i,'at',0,T,.05,a.at,'s')+
-   rng('Track from','au'+i,'off',0,(a.el.duration||a.dur||0).toFixed(1),.5,a.off,'s')+`<div class="row"><span>Voice effect</span><div class="chips" style="margin:0">${VFX.map(f=>chip(f,'vfx',i+':'+f,a.fx===f)).join('')}</div></div>`+
+   rng('Track from','au'+i,'off',0,(a.el.duration||a.dur||0).toFixed(1),.5,a.off,'s')+rng('Track to','au'+i,'to',0,(a.el.duration||a.dur||0).toFixed(1),.5,a.to||(a.el.duration||a.dur||0),'s')+`<div class="chips">${Object.entries(PARTS).map(([k,l])=>chip(l,'part',i+':'+k,(a.part||'full')===k)).join('')}</div>`+`<div class="row"><span>Voice effect</span><div class="chips" style="margin:0">${VFX.map(f=>chip(f,'vfx',i+':'+f,a.fx===f)).join('')}</div></div>`+
    `<div class="row" style="flex-wrap:wrap"><span style="width:auto">Loop</span><input type="checkbox" data-o="au${i}" data-k="loop" ${a.loop?'checked':''}><span style="width:auto">Fade in</span><input type="checkbox" data-o="au${i}" data-k="fadeIn" ${a.fadeIn?'checked':''}><span style="width:auto">Fade out</span><input type="checkbox" data-o="au${i}" data-k="fadeOut" ${a.fadeOut?'checked':''}>${a.kind==='music'?`<span style="width:auto">Lower under voice</span><input type="checkbox" data-o="au${i}" data-k="duck" ${a.duck?'checked':''}>`:''}</div></div>`).join('')+'</div>'}
 function pFormat(){return`<h3>Aspect ratio</h3><div class="chips">${[['9:16','9:16 Reels / Shorts'],['1:1','1:1 Square'],['4:5','4:5 Post'],['16:9','16:9 YouTube']].map(([k,l])=>chip(l,'ratio',k,S.ratio===k)).join('')}</div>`+
   `<h3>Background (for “Fit whole” clips)</h3><div class="chips">${chip('Blurred video','bgMode','blur',S.bgMode==='blur')}${chip('Solid colour','bgMode','color',S.bgMode==='color')}<input type="color" data-o="S" data-k="bg" value="${S.bg}"></div>`}
-function pExport(){const T=total();return`<h3>Quality</h3><div class="chips">${chip('720p · faster','q','720',S.q==='720')}${chip('1080p · sharper','q','1080',S.q==='1080')}</div><p class="hint">Length ${fmt(T)} · ${W}×${H}. Export plays your video once in real time, so it takes about ${Math.ceil(T)} seconds. Keep the screen on. Then tap “Save to phone” to put it in your gallery, or Share to send it to WhatsApp or Instagram.</p>${B('⬇️ Export video','export','','pri')}`}
+function pExport(){const T=total();return`<h3>Quality</h3><div class="chips">${chip('720p · faster','q','720',S.q==='720')}${chip('1080p · sharper','q','1080',S.q==='1080')}</div><p class="hint">Length ${fmt(T)} · ${W}×${H}. Export plays your video once in real time, so it takes about ${Math.ceil(T)} seconds. Keep the screen on. Then tap “Save to phone” to put it in your gallery, or Share to send it to WhatsApp or Instagram.</p>${B('⬇️ Export video','export','','pri')} ${B('🎵 Download MP3 (sound only)','mp3')}`}
 function pCreate(){const c=S.sel;let h='';
   if(c&&c.kind==='gen')h+=`<h3>Selected: ${esc(c.gen)}</h3><div class="chips">${GENS.map(g=>chip(g,'genStyle',g,c.gen===g)).join('')}</div><div class="row"><span>Colours</span><input type="color" data-o="clip" data-k="c1" value="${c.c1}"><input type="color" data-o="clip" data-k="c2" value="${c.c2}"></div>`+rng('Duration','clip','end',.5,30,.5,c.end,'s');
   h+=`<h3>⚡ One-tap templates</h3><div class="chips">${B('✨ Animated intro','tpl','intro','pri')}${B('🎉 Party card','tpl','party','pri')}${c&&c.kind!=='gen'?B('🧊 Make this clip 3D','tpl','photo3d','pri'):''}</div>`;
   if(c&&c.kind!=='gen'){const nm=c.kind==='image'?'photo':'video';
     h+=`<h3>✏️ Change the selected ${nm} (clip ${S.clips.indexOf(c)+1})</h3><p class="hint">These change only this clip. Tap another clip in the timeline to change that one.</p>`;
-    h+=`<div class="chips">${B('3D flip','m3d','3D flip')}${B('3D tilt','m3d','3D tilt')}${B('3D swing','m3d','3D swing')}${B('Float','m3d','Float')}${B('3D title on it','d3title')}</div>`;
+    h+=`<h3>🎬 Animate it</h3><div class="chips">${MOTIONS.map(m=>chip(m,'m3d',m,c.motion===m)).join('')}</div>`;
+    h+=`<h3>🎈 Animated things on top</h3><div class="chips">${['None',...OVERLAYS].map(o=>chip(o,'fx',o,c.fx===o)).join('')}${B('3D title on it','d3title')}</div><h3>😂 Meme</h3>`;
     h+=`<div class="chips">${B('😂 Meme top + bottom','meme','classic')}${B('Caption bar','meme','caption')}${B('Reaction word','meme','impact')}${B('Zoom + shake 💀','meme','punch')}</div>`}
   else if(!c)h+=`<p class="hint">Tap a photo or video in the timeline to make it 3D or turn it into a meme.</p>`;
   h+=`<h3>➕ Add a new animated clip</h3><p class="hint">Adds a separate moving background after the selected clip, for intros, titles or quotes. Delete it in Edit if you don't want it.</p><div class="chips">${GENS.map(g=>B(g==='Synthwave 3D'?'3D synthwave':g,'addGen',g)).join('')}</div>`;
@@ -400,7 +436,7 @@ const A={
   motionAll(){push();S.clips.forEach(c=>c.motion=S.sel.motion)},
   tr:v=>{push();S.sel.tr=v;const i=S.clips.indexOf(S.sel);if(i<S.clips.length-1){S.t=Math.max(0,startOf(i+1)-S.fade-.3);play()}},
   trAll(){push();S.clips.forEach(c=>c.tr=S.sel.tr)},
-  filter:v=>{push();S.sel.filter=v},fx:v=>{push();S.sel.fx=v},
+  filter:v=>{push();S.sel.filter=v},
   fxAll(){push();const s=S.sel;S.clips.forEach(c=>Object.assign(c,{filter:s.filter,fx:s.fx,bri:s.bri,con:s.con,sat:s.sat}))},
   resetAdj(){push();Object.assign(S.sel,{bri:100,con:100,sat:100})},
   addText:()=>addText(),emo(){S.emo=!S.emo},sticker:v=>addText(v),
@@ -414,6 +450,8 @@ const A={
   addMusic:()=>audIn.click(),voice:toggleVoice,
   delAudio:v=>{push();const a=S.audios.splice(+v,1)[0];a.el.pause()},
   extract:extractAudio,mix:v=>{S.mix=v;if(!S.playing)play()},viz:v=>{S.viz=v;if(v!=='None'&&!S.playing)play()},
+  part:v=>{const[i,p]=v.split(':');const a=S.audios[+i];push();a.part=p;S.t=a.at;play()},
+  mp3:()=>exportMp3(),
   swapKind:v=>{push();const a=S.audios[+v];a.kind=a.kind==='voice'?'music':'voice'},
   vfx:v=>{push();const[i,f]=v.split(':');const a=S.audios[+i];a.fx=f;S.t=a.at;if(!S.playing)play()},
   ratio:v=>{push();S.ratio=v;setSize()},bgMode:v=>{push();S.bgMode=v},q:v=>{S.q=v;setSize()},
@@ -424,6 +462,7 @@ const A={
     if(v==='photo3d'&&S.sel){push();S.sel.motion='3D swing';S.clips.forEach(c=>c.tr='3D cube');S.t=startOf(S.clips.indexOf(S.sel));setTimeout(play,50)}
     if(v==='party'){addGen('Confetti');addText('🎉');const i0=S.clips.indexOf(S.sel);S.selText.start=startOf(i0);S.selText.end=S.selText.start+clen(S.sel)}},
   m3d:v=>{push();S.sel.motion=v;S.t=startOf(S.clips.indexOf(S.sel));play()},
+  fx:v=>{push();S.sel.fx=v;S.t=startOf(S.clips.indexOf(S.sel));play()},
   tr3d:v=>{push();S.clips.forEach(c=>c.tr=v)},
   meme(v){if(!S.sel){note('Tap a clip in the timeline first');return}const i0=S.clips.indexOf(S.sel),st=startOf(i0),en=st+clen(S.sel);push();const base={font:'Bold',color:'#ffffff',stroke:true,strokeC:'#000000',bg:false,bgc:'#000000',anim:'None',d3:false,d3c:'#7a1f1f',x:.5,start:st,end:en};
     const add=o=>{const t={id:uid++,...base,...o};S.texts.push(t);S.selText=t};
@@ -433,7 +472,7 @@ const A={
     if(v==='punch'&&S.sel){S.sel.motion='Shake';S.sel.zoom=1.4;add({text:'💀',size:200,y:.3,anim:'Pop',stroke:false})}
     S.t=st+.01;S.tab='text'}
 };
-const KEEP_PLAY=['voice','mix','viz'];
+const KEEP_PLAY=['voice','mix','viz','part'];
 panel.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(!t)return;const f=A[t.dataset.act];if(!f)return;if(S.playing&&!KEEP_PLAY.includes(t.dataset.act))pause();Promise.resolve(f(t.dataset.v)).then(renderAll)});
 function obj(o){if(o==='clip')return S.sel;if(o==='text')return S.selText;if(o==='S')return S;if(o&&o.startsWith('au'))return S.audios[+o.slice(2)]}
 panel.addEventListener('input',e=>{const el=e.target,k=el.dataset.k,on=el.dataset.o;if(!k)return;const o=obj(on);if(!o)return;mark();
