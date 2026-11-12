@@ -356,9 +356,14 @@ function pFormat(){return`<h3>Aspect ratio</h3><div class="chips">${[['9:16','9:
 function pExport(){const T=total();return`<h3>Quality</h3><div class="chips">${chip('720p · faster','q','720',S.q==='720')}${chip('1080p · sharper','q','1080',S.q==='1080')}</div><p class="hint">Length ${fmt(T)} · ${W}×${H}. Export plays your video once in real time, so it takes about ${Math.ceil(T)} seconds. Keep the screen on. Then tap “Save to phone” to put it in your gallery, or Share to send it to WhatsApp or Instagram.</p>${B('⬇️ Export video','export','','pri')}`}
 function pCreate(){const c=S.sel;let h='';
   if(c&&c.kind==='gen')h+=`<h3>Selected: ${esc(c.gen)}</h3><div class="chips">${GENS.map(g=>chip(g,'genStyle',g,c.gen===g)).join('')}</div><div class="row"><span>Colours</span><input type="color" data-o="clip" data-k="c1" value="${c.c1}"><input type="color" data-o="clip" data-k="c2" value="${c.c2}"></div>`+rng('Duration','clip','end',.5,30,.5,c.end,'s');
-  h+=`<h3>🎨 Animated backgrounds</h3><p class="hint">Adds an animated clip after the selected one. Put text, stickers or a voiceover on top.</p><div class="chips">${GENS.map(g=>B(g,'addGen',g)).join('')}</div>`;
-  h+=`<h3>🧊 3D</h3><div class="chips">${B('3D synthwave scene','addGen','Synthwave 3D')}${B('3D title text','d3title')}${c?B('3D flip clip','m3d','3D flip')+B('3D tilt clip','m3d','3D tilt')+B('3D swing clip','m3d','3D swing'):''}${B('3D cube transitions','tr3d','3D cube')}${B('3D flip transitions','tr3d','3D flip')}</div>`;
-  return h+`<h3>😂 Meme</h3><div class="chips">${B('Top + bottom text','meme','classic')}${B('Caption bar','meme','caption')}${B('Big reaction word','meme','impact')}${c?B('Zoom + shake punch','meme','punch'):''}</div><p class="hint">Change the words in the Text tab. More emoji in Text → Sticker.</p>`}
+  h+=`<h3>⚡ One-tap templates</h3><div class="chips">${B('✨ Animated intro','tpl','intro','pri')}${B('🎉 Party card','tpl','party','pri')}${c&&c.kind!=='gen'?B('🧊 Make this clip 3D','tpl','photo3d','pri'):''}</div>`;
+  if(c&&c.kind!=='gen'){const nm=c.kind==='image'?'photo':'video';
+    h+=`<h3>✏️ Change the selected ${nm} (clip ${S.clips.indexOf(c)+1})</h3><p class="hint">These change only this clip. Tap another clip in the timeline to change that one.</p>`;
+    h+=`<div class="chips">${B('3D flip','m3d','3D flip')}${B('3D tilt','m3d','3D tilt')}${B('3D swing','m3d','3D swing')}${B('Float','m3d','Float')}${B('3D title on it','d3title')}</div>`;
+    h+=`<div class="chips">${B('😂 Meme top + bottom','meme','classic')}${B('Caption bar','meme','caption')}${B('Reaction word','meme','impact')}${B('Zoom + shake 💀','meme','punch')}</div>`}
+  else if(!c)h+=`<p class="hint">Tap a photo or video in the timeline to make it 3D or turn it into a meme.</p>`;
+  h+=`<h3>➕ Add a new animated clip</h3><p class="hint">Adds a separate moving background after the selected clip, for intros, titles or quotes. Delete it in Edit if you don't want it.</p><div class="chips">${GENS.map(g=>B(g==='Synthwave 3D'?'3D synthwave':g,'addGen',g)).join('')}</div>`;
+  return h+`<h3>🔁 Between all clips</h3><div class="chips">${B('3D cube transitions','tr3d','3D cube')}${B('3D flip transitions','tr3d','3D flip')}</div>`}
 const PANELS={create:pCreate,media:pMedia,edit:pEdit,motion:pMotion,fx:pFx,text:pText,audio:pAudio,format:pFormat,export:pExport};
 const TABS=[['media','🎞️','Media'],['edit','✂️','Edit'],['motion','✨','Motion'],['fx','🎨','Effects'],['text','🔤','Text'],['audio','🎵','Audio'],['create','🪄','Create'],['export','⬇️','Export']];
 tabs.innerHTML=TABS.map(([k,i,l])=>`<button data-tab="${k}"><i>${i}</i>${l}</button>`).join('');
@@ -414,16 +419,19 @@ const A={
   ratio:v=>{push();S.ratio=v;setSize()},bgMode:v=>{push();S.bgMode=v},q:v=>{S.q=v;setSize()},
   export:exportVideo,
   addGen:v=>addGen(v),genStyle:v=>{push();S.sel.gen=v;S.sel.name=v;S.sel.thumb=genThumb(S.sel)},
-  d3title(){addText('YOUR TITLE');Object.assign(S.selText,{size:150,font:'Bold',d3:true,anim:'Pop',y:.45,color:'#ffd166',d3c:'#b5179e'})},
+  d3title(){addText('YOUR TITLE');const i0=S.sel?S.clips.indexOf(S.sel):-1;if(i0>-1){S.selText.start=startOf(i0);S.selText.end=S.selText.start+clen(S.sel)}Object.assign(S.selText,{size:150,font:'Bold',d3:true,anim:'Pop',y:.45,color:'#ffd166',d3c:'#b5179e'})},
+  tpl(v){if(v==='intro'){addGen('Gradient');const g=S.sel;g.c1='#7b2ff7';g.c2='#f107a3';g.thumb=genThumb(g);A.d3title()}
+    if(v==='photo3d'&&S.sel){push();S.sel.motion='3D swing';S.clips.forEach(c=>c.tr='3D cube');S.t=startOf(S.clips.indexOf(S.sel));setTimeout(play,50)}
+    if(v==='party'){addGen('Confetti');addText('🎉');const i0=S.clips.indexOf(S.sel);S.selText.start=startOf(i0);S.selText.end=S.selText.start+clen(S.sel)}},
   m3d:v=>{push();S.sel.motion=v;S.t=startOf(S.clips.indexOf(S.sel));play()},
   tr3d:v=>{push();S.clips.forEach(c=>c.tr=v)},
-  meme(v){const T=Math.max(total(),1);push();const base={font:'Bold',color:'#ffffff',stroke:true,strokeC:'#000000',bg:false,bgc:'#000000',anim:'None',d3:false,d3c:'#7a1f1f',x:.5,start:0,end:T};
+  meme(v){if(!S.sel){note('Tap a clip in the timeline first');return}const i0=S.clips.indexOf(S.sel),st=startOf(i0),en=st+clen(S.sel);push();const base={font:'Bold',color:'#ffffff',stroke:true,strokeC:'#000000',bg:false,bgc:'#000000',anim:'None',d3:false,d3c:'#7a1f1f',x:.5,start:st,end:en};
     const add=o=>{const t={id:uid++,...base,...o};S.texts.push(t);S.selText=t};
     if(v==='classic'){add({text:'TOP TEXT',size:110,y:.1});add({text:'BOTTOM TEXT',size:110,y:.9})}
     if(v==='caption')add({text:'me when the video finally exports',font:'Sans',color:'#000000',stroke:false,bg:true,bgc:'#ffffff',size:64,y:.12});
-    if(v==='impact')add({text:'BRUH',size:220,y:.5,anim:'Zoom',start:S.t,end:S.t+2});
-    if(v==='punch'&&S.sel){S.sel.motion='Shake';S.sel.zoom=1.4;add({text:'💀',size:200,y:.3,anim:'Pop',stroke:false,start:S.t,end:S.t+2})}
-    S.tab='text'}
+    if(v==='impact')add({text:'BRUH',size:220,y:.5,anim:'Zoom'});
+    if(v==='punch'&&S.sel){S.sel.motion='Shake';S.sel.zoom=1.4;add({text:'💀',size:200,y:.3,anim:'Pop',stroke:false})}
+    S.t=st+.01;S.tab='text'}
 };
 const KEEP_PLAY=['voice','mix','viz'];
 panel.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(!t)return;const f=A[t.dataset.act];if(!f)return;if(S.playing&&!KEEP_PLAY.includes(t.dataset.act))pause();Promise.resolve(f(t.dataset.v)).then(renderAll)});
