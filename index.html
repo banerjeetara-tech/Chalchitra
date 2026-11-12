@@ -120,7 +120,7 @@ const DB={db:null,open(){if(this.db)return Promise.resolve(this.db);return new P
   put(st,k,v){return this.tx(st,'readwrite',s=>s.put(v,k))},get(st,k){return this.tx(st,'readonly',s=>s.get(k))},clear(st){return this.tx(st,'readwrite',s=>s.clear())}};
 let saveT=0;
 function autosave(){clearTimeout(saveT);saveT=setTimeout(saveNow,1200)}
-function saveNow(){if(S.exporting)return;const p={clips:S.clips.map(({el,...r})=>r),texts:S.texts.map(({_box,...r})=>r),audios:S.audios.map(({el,...r})=>r),ratio:S.ratio,q:S.q,bg:S.bg,bgMode:S.bgMode,fade:S.fade,mix:S.mix,viz:S.viz,vizC:S.vizC};DB.put('proj','current',p).catch(()=>{})}
+function saveNow(){if(S.exporting)return;const p={clips:S.clips.map(({el,...r})=>r),texts:S.texts.map(({_box,_img,...r})=>r),audios:S.audios.map(({el,...r})=>r),ratio:S.ratio,q:S.q,bg:S.bg,bgMode:S.bgMode,fade:S.fade,mix:S.mix,viz:S.viz,vizC:S.vizC};DB.put('proj','current',p).catch(()=>{})}
 async function loadProject(p){showOv('Opening project…','');const cache={};
   const getEl=async(fid,kind)=>{const ck=kind+fid;if(cache[ck])return cache[ck];const blob=await DB.get('files',fid);if(!blob)throw 0;const url=URL.createObjectURL(blob);let el;
     if(kind==='video')el=await loadVideo(url);else if(kind==='image')el=await loadImage(url);else{el=new Audio();el.preload='auto';el.src=url;pool.append(el)}return cache[ck]=el};
@@ -352,17 +352,17 @@ function toon(mode){const w=Math.round(W/3),h=Math.round(H/3);if(!toonC)toonC=do
   x.putImageData(im,0,0);cx.save();cx.imageSmoothingEnabled=true;cx.drawImage(toonC,0,0,W,H);cx.restore()}
 
 /* ===== original animated characters ===== */
-const CHARS=['Blob','Cat','Robot','Ghost','Star'],CACT=['Bounce','Jump','Dance','Wave','Walk','Talk'];
+const CHARS=['Blob','Frog','Cat','Dog','Robot','Ghost','Star'],CACT=['Bounce','Jump','Dance','Wave','Walk','Talk','Sleep'];
 function addChar(type){push();const i0=S.sel?S.clips.indexOf(S.sel):-1,st=i0>-1?startOf(i0):S.t,en=i0>-1?st+clen(S.sel):S.t+4;
-  const t={id:uid++,kind:'char',char:type,act:type==='Ghost'?'Talk':'Bounce',color:{Blob:'#ffb347',Cat:'#f4a261',Robot:'#9ad1ff',Ghost:'#ffffff',Star:'#ffd166'}[type],size:100,x:.5,y:.62,start:st,end:Math.max(en,st+.5),text:type,say:'',lip:false,anim:'None'};
+  const t={id:uid++,kind:'char',char:type,act:type==='Ghost'?'Talk':'Bounce',color:{Blob:'#ffb347',Frog:'#6ccf5f',Dog:'#c68b59',Cat:'#f4a261',Robot:'#9ad1ff',Ghost:'#ffffff',Star:'#ffd166'}[type],size:100,x:.5,y:.62,start:st,end:Math.max(en,st+.5),text:type,say:'',lip:false,anim:'None'};
   S.texts.push(t);S.selText=t;S.tab='text'}
 function drawChar(t,lt,k){const r=t.size*k*1.1;let x=t.x*W,y=t.y*H,rot=0,sx=1,sy=1;const sw=Math.sin(lt*8);
   switch(t.act){case'Bounce':y-=Math.abs(Math.sin(lt*4))*r*.7;break;case'Jump':{const p=(lt*1.1)%1;y-=Math.sin(p*Math.PI)*r*1.6;if(p<.08||p>.92){sx=1.18;sy=.82}break}
-    case'Dance':rot=Math.sin(lt*6)*.25;y-=Math.abs(Math.sin(lt*6))*r*.2;break;case'Walk':x=(((t.x+lt*.12)%1.3)-.15)*W;y-=Math.abs(sw)*r*.12;rot=sw*.06;break}
-  let mouth=.15;if(t.act==='Talk'||t.lip){const lv=S.playing?levels():null;mouth=lv?Math.min(1,lv.slice(2,24).reduce((a,b)=>a+b,0)/22/255*1.8):(Math.sin(lt*14)+1)*.4}
-  const blink=(lt%3.2)<.12,col=t.color;cx.save();cx.translate(x,y);cx.rotate(rot);cx.scale(sx,sy);cx.lineWidth=Math.max(2,r*.06);cx.strokeStyle='#1a1a1a';cx.lineJoin='round';
+    case'Dance':rot=Math.sin(lt*6)*.25;y-=Math.abs(Math.sin(lt*6))*r*.2;break;case'Walk':x=(((t.x+lt*.12)%1.3)-.15)*W;y-=Math.abs(sw)*r*.12;rot=sw*.06;break;case'Sleep':sx=sy=1+Math.sin(lt*2)*.03;break}
+  let mouth=t.act==='Sleep'?.05:.15;if(t.act==='Talk'||t.lip){const lv=S.playing?levels():null;mouth=lv?Math.min(1,lv.slice(2,24).reduce((a,b)=>a+b,0)/22/255*1.8):(Math.sin(lt*14)+1)*.4}
+  const blink=t.act==='Sleep'||(lt%3.2)<.12,col=t.color;cx.save();cx.translate(x,y);cx.rotate(rot);cx.scale(sx,sy);cx.lineWidth=Math.max(2,r*.06);cx.strokeStyle='#1a1a1a';cx.lineJoin='round';
   const limb=(px,py,ang,len)=>{cx.save();cx.translate(px,py);cx.rotate(ang);cx.lineCap='round';cx.strokeStyle='#1a1a1a';cx.lineWidth=r*.24;cx.beginPath();cx.moveTo(0,0);cx.lineTo(0,len);cx.stroke();cx.strokeStyle=col;cx.lineWidth=r*.15;cx.stroke();cx.restore()};
-  if(t.char!=='Ghost'&&t.char!=='Star'){const aR=t.act==='Wave'?Math.PI-.5+Math.sin(lt*8)*.4:t.act==='Dance'?1.2+Math.sin(lt*6)*.9:.35,aL=t.act==='Dance'?1.2-Math.sin(lt*6)*.9:.35;
+  if(!['Ghost','Star','Emoji','Custom'].includes(t.char)){const aR=t.act==='Wave'?Math.PI-.5+Math.sin(lt*8)*.4:t.act==='Dance'?1.2+Math.sin(lt*6)*.9:.35,aL=t.act==='Dance'?1.2-Math.sin(lt*6)*.9:.35;
     const lg=(t.act==='Walk'||t.act==='Dance')?sw*.4:0;limb(r*.35,r*.8,lg,r*.45);limb(-r*.35,r*.8,-lg,r*.45);limb(r*.85,r*.1,-aR,r*.7);limb(-r*.85,r*.1,aL,r*.7)}
   const eyes=(ey,ex,er)=>{for(const s2 of[-1,1]){cx.fillStyle='#fff';cx.beginPath();cx.ellipse(s2*ex,ey,er,blink?er*.12:er*1.2,0,0,7);cx.fill();cx.stroke();if(!blink){cx.fillStyle='#111';cx.beginPath();cx.arc(s2*ex+er*.2,ey+er*.2,er*.5,0,7);cx.fill()}}};
   const mth=my=>{cx.fillStyle='#5a1020';cx.beginPath();cx.ellipse(0,my,r*.2,r*(.04+.2*mouth),0,0,7);cx.fill();cx.stroke()};
@@ -378,8 +378,17 @@ function drawChar(t,lt,k){const r=t.size*k*1.1;let x=t.x*W,y=t.y*H,rot=0,sx=1,sy
     const mh=r*(.08+.3*mouth);cx.fillStyle='#222';cx.fillRect(-r*.4,r*.35-mh/2,r*.8,mh);cx.strokeStyle='#888';cx.lineWidth=r*.03;for(let i=1;i<4;i++){cx.beginPath();cx.moveTo(-r*.4+i*r*.2,r*.35-mh/2);cx.lineTo(-r*.4+i*r*.2,r*.35+mh/2);cx.stroke()}break}
   case'Ghost':cx.globalAlpha=.95;cx.beginPath();cx.arc(0,-r*.1,r*.85,Math.PI,0);for(let i=0;i<=6;i++)cx.lineTo(r*.85-i*r*1.7/6,r*.85+Math.sin(lt*6+i*1.8)*r*.12+(i%2?-r*.15:0));cx.closePath();cx.fill();cx.stroke();cx.globalAlpha=1;
     cx.fillStyle='#111';for(const s2 of[-1,1]){cx.beginPath();cx.ellipse(s2*r*.3,-r*.2,r*.12,blink?r*.02:r*.18,0,0,7);cx.fill()}cx.beginPath();cx.ellipse(0,r*.3,r*.13,r*(.06+.2*mouth),0,0,7);cx.fill();break;
+  case'Emoji':cx.font=`${r*1.9}px system-ui`;cx.textAlign='center';cx.textBaseline='middle';cx.fillText(t.emo||'🙂',0,0);break;
+  case'Custom':if(!t._img){t._img=new Image();t._img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(t.svg||'');t._img.onload=()=>{if(!S.playing)draw()}}if(t._img.complete&&t._img.naturalWidth)cx.drawImage(t._img,-r,-r,2*r,2*r);break;
+  case'Frog':cx.beginPath();cx.ellipse(0,r*.15,r*1.05,r*.8,0,0,7);cx.fill();cx.stroke();for(const s2 of[-1,1]){cx.fillStyle=col;cx.beginPath();cx.arc(s2*r*.45,-r*.55,r*.32,0,7);cx.fill();cx.stroke()}
+    eyes(-r*.55,r*.45,r*.17);cx.fillStyle='rgba(255,110,140,.5)';for(const s2 of[-1,1]){cx.beginPath();cx.arc(s2*r*.68,r*.2,r*.12,0,7);cx.fill()}
+    if(mouth>.2){cx.fillStyle='#5a1020';cx.beginPath();cx.ellipse(0,r*.28,r*.45,r*(.05+.25*mouth),0,0,7);cx.fill();cx.stroke()}else{cx.beginPath();cx.arc(0,r*.02,r*.5,.25*Math.PI,.75*Math.PI);cx.stroke()}break;
+  case'Dog':for(const s2 of[-1,1]){cx.fillStyle='#7a4a2a';cx.beginPath();cx.ellipse(s2*r*.85,-r*.1,r*.28,r*.6,s2*.3,0,7);cx.fill();cx.stroke()}cx.fillStyle=col;cx.beginPath();cx.arc(0,0,r*.9,0,7);cx.fill();cx.stroke();
+    eyes(-r*.2,r*.32,r*.14);cx.fillStyle='#f1d3b3';cx.beginPath();cx.ellipse(0,r*.35,r*.45,r*.32,0,0,7);cx.fill();cx.stroke();cx.fillStyle='#111';cx.beginPath();cx.ellipse(0,r*.2,r*.14,r*.1,0,0,7);cx.fill();
+    if(mouth>.2){cx.fillStyle='#ff7aa2';cx.beginPath();cx.ellipse(0,r*.55,r*.12,r*(.08+.2*mouth),0,0,7);cx.fill();cx.stroke()}break;
   case'Star':cx.beginPath();for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,q=i%2?r*.5:r*1.15;cx.lineTo(Math.cos(a)*q,Math.sin(a)*q)}cx.closePath();cx.fill();cx.stroke();eyes(-r*.1,r*.22,r*.11);mth(r*.3);break}
   cx.restore();
+  if(t.act==='Sleep'){cx.save();cx.fillStyle='#fff';cx.strokeStyle='#1a1a1a';cx.lineWidth=Math.max(2,r*.04);cx.textAlign='center';for(let i=0;i<3;i++){const ph=(lt*.5+i/3)%1;cx.globalAlpha=1-ph;cx.font=`900 ${r*(.3+ph*.4)}px system-ui`;const zx=x+r*(.7+ph*.6),zy=y-r*(1+ph*1.2);cx.strokeText('Z',zx,zy);cx.fillText('Z',zx,zy)}cx.restore()}
   if(t.say){const fs=r*.38;cx.save();cx.font=`700 ${fs}px system-ui`;cx.textAlign='center';cx.textBaseline='middle';const tw=cx.measureText(t.say).width,by=y-r*1.9;cx.fillStyle='#fff';cx.strokeStyle='#1a1a1a';cx.lineWidth=Math.max(2,r*.04);
     rr(x-tw/2-fs*.6,by-fs*.9,tw+fs*1.2,fs*1.8,fs*.6);cx.fill();cx.stroke();cx.beginPath();cx.moveTo(x-fs*.3,by+fs*.85);cx.lineTo(x,by+fs*1.5);cx.lineTo(x+fs*.3,by+fs*.85);cx.fill();cx.fillStyle='#111';cx.fillText(t.say,x,by);cx.restore()}
   t._box=[x-r,y-r,2*r,2*r]}
@@ -391,7 +400,7 @@ const STY={'Lo-fi':{bpm:76,ch:[[57,60,64,67],[50,53,57,60],[55,59,62,65],[60,64,
   'Sad piano':{bpm:64,ch:[[57,60,64],[53,57,60],[60,64,67],[55,59,62]]},'Chill':{bpm:90,ch:[[53,57,60,64],[52,55,59,62],[50,53,57,60],[48,52,55,59]]}};
 function synthKit(oc){const sr=oc.sampleRate,m=oc.createGain(),comp=oc.createDynamicsCompressor();m.gain.value=.55;m.connect(comp);comp.connect(oc.destination);
   const nb=oc.createBuffer(1,sr,sr),nd=nb.getChannelData(0);for(let i=0;i<sr;i++)nd[i]=Math.random()*2-1;
-  return{tone(f,t,d,type='triangle',v=.1,att=.01){const o=oc.createOscillator(),g=oc.createGain();o.type=type;o.frequency.value=f;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+att);g.gain.exponentialRampToValueAtTime(.0005,t+Math.max(d,att+.02));o.connect(g);g.connect(m);o.start(t);o.stop(t+d+.05);return o},
+  return{m,tone(f,t,d,type='triangle',v=.1,att=.01){const o=oc.createOscillator(),g=oc.createGain();o.type=type;o.frequency.value=f;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+att);g.gain.exponentialRampToValueAtTime(.0005,t+Math.max(d,att+.02));o.connect(g);g.connect(m);o.start(t);o.stop(t+d+.05);return o},
     kick(t,v=.9,f0=150,f1=42){const o=oc.createOscillator(),g=oc.createGain();o.frequency.setValueAtTime(f0,t);o.frequency.exponentialRampToValueAtTime(f1,t+.14);g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.001,t+.32);o.connect(g);g.connect(m);o.start(t);o.stop(t+.35)},
     noise(t,d,v=.2,hp=2000,type='highpass'){const s=oc.createBufferSource(),f=oc.createBiquadFilter(),g=oc.createGain();s.buffer=nb;f.type=type;f.frequency.value=hp;if(v>0){g.gain.setValueAtTime(v,t);g.gain.exponentialRampToValueAtTime(.001,t+d)}s.connect(f);f.connect(g);g.connect(m);s.start(t,Math.random()*.5);s.stop(t+d+.02);return{s,f,g}}}}
 async function renderMusic(style,len){const sr=44100,oc=new OfflineAudioContext(2,Math.ceil(len*sr),sr),K=synthKit(oc),P=STY[style],bt=60/P.bpm,bar=bt*4;let seed=1;const rr=()=>rnd(seed++);
@@ -411,10 +420,17 @@ async function renderMusic(style,len){const sr=44100,oc=new OfflineAudioContext(
     case'Chill':ch.forEach(n=>K.tone(midi(n),t0,bar*1.1,'sine',.06,.9));K.tone(midi(root-12),t0,bar,'sine',.15,.3);for(let i=0;i<8;i++)K.noise(t0+i*bt/2,.04,.03,8000);
       if(b%2==0)for(let i=0;i<4;i++)if(rr()<.5)K.tone(midi(ch[i%ch.length]+24),t0+i*bt,bt,'sine',.03,.05);break}}
   return oc.startRendering()}
-const SFX=['Boing','Dramatic hit','Womp womp','Whoosh','Ding','Drum roll','Horn blast','Record scratch','Pop'];
-async function renderSfx(n){const len={'Drum roll':2.3,'Womp womp':2.4,'Dramatic hit':2,'Ding':1.4,'Horn blast':1.4}[n]||1,sr=44100,oc=new OfflineAudioContext(2,Math.ceil(len*sr),sr),K=synthKit(oc);
+const SFX=['Frog croak','Meow','Woof','Snore','Boing','Dramatic hit','Womp womp','Whoosh','Ding','Drum roll','Horn blast','Record scratch','Pop'];
+async function renderSfx(n){const len={'Snore':2.5,'Frog croak':1.1,'Drum roll':2.3,'Womp womp':2.4,'Dramatic hit':2,'Ding':1.4,'Horn blast':1.4}[n]||1,sr=44100,oc=new OfflineAudioContext(2,Math.ceil(len*sr),sr),K=synthKit(oc);
   const vib=(o,t,d,rate,depth)=>{const l=oc.createOscillator(),lg=oc.createGain();l.frequency.value=rate;lg.gain.value=depth;l.connect(lg);lg.connect(o.frequency);l.start(t);l.stop(t+d)};
   switch(n){
+  case'Frog croak':for(const t0 of[0,.55]){const o=oc.createOscillator(),g=oc.createGain(),am=oc.createOscillator(),amg=oc.createGain(),lp=oc.createBiquadFilter();o.type='sawtooth';o.frequency.setValueAtTime(130,t0);o.frequency.linearRampToValueAtTime(95,t0+.35);lp.type='lowpass';lp.frequency.value=900;
+    am.frequency.value=22;amg.gain.value=.25;g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(.35,t0+.03);g.gain.linearRampToValueAtTime(0,t0+.4);am.connect(amg);amg.connect(g.gain);o.connect(lp);lp.connect(g);g.connect(K.m);o.start(t0);o.stop(t0+.45);am.start(t0);am.stop(t0+.45)}break;
+  case'Meow':{const o=oc.createOscillator(),bp=oc.createBiquadFilter(),g=oc.createGain();o.type='sawtooth';o.frequency.setValueAtTime(420,0);o.frequency.linearRampToValueAtTime(780,.18);o.frequency.linearRampToValueAtTime(520,.6);bp.type='bandpass';bp.Q.value=3;bp.frequency.setValueAtTime(900,0);bp.frequency.linearRampToValueAtTime(1800,.2);bp.frequency.linearRampToValueAtTime(800,.6);
+    g.gain.setValueAtTime(0,0);g.gain.linearRampToValueAtTime(.5,.05);g.gain.linearRampToValueAtTime(.35,.4);g.gain.linearRampToValueAtTime(0,.65);o.connect(bp);bp.connect(g);g.connect(K.m);o.start(0);o.stop(.7);break}
+  case'Woof':for(const t0 of[0,.35]){const o=oc.createOscillator(),bp=oc.createBiquadFilter(),g=oc.createGain();o.type='sawtooth';o.frequency.setValueAtTime(260,t0);o.frequency.exponentialRampToValueAtTime(140,t0+.15);bp.type='bandpass';bp.frequency.value=700;bp.Q.value=1.5;
+    g.gain.setValueAtTime(0,t0);g.gain.linearRampToValueAtTime(.7,t0+.01);g.gain.exponentialRampToValueAtTime(.001,t0+.2);o.connect(bp);bp.connect(g);g.connect(K.m);o.start(t0);o.stop(t0+.22);K.noise(t0,.12,.25,600,'bandpass')}break;
+  case'Snore':for(const t0 of[0,1.3]){const x=K.noise(t0,1.1,-1,350,'lowpass');x.g.gain.setValueAtTime(.001,t0);x.g.gain.linearRampToValueAtTime(.6,t0+.6);x.g.gain.linearRampToValueAtTime(.001,t0+1.1);K.tone(70,t0+.1,.9,'sawtooth',.06,.4)}break;
   case'Boing':{const o=K.tone(110,0,.7,'sine',.5,.005);o.frequency.setValueAtTime(110,0);o.frequency.exponentialRampToValueAtTime(520,.35);vib(o,0,.8,28,45);break}
   case'Dramatic hit':K.kick(0,1,80,35);[50,53,57,38].forEach(m=>K.tone(midi(m),0,1.8,'sawtooth',.07,.005));K.noise(0,1.5,.25,3000);break;
   case'Womp womp':[[62,0,.38],[61,.42,.38],[60,.84,.38],[59,1.26,1]].forEach(([m,t,d],i)=>{const o=K.tone(midi(m-12),t,d,'sawtooth',.16,.03);if(i==3)vib(o,t,d,6,4)});break;
@@ -435,20 +451,75 @@ const MOODS={
   shock:{k:/boss|result|price|deadline|meeting|call|email|audit|caught|suddenly|surprise|bill|review/i,emoji:['😱','👀','🫣'],lines:['wait WHAT','I was not ready','visible confusion','*panics quietly*'],gen:'Gradient',c:['#f72585','#3a0ca3'],music:'Dramatic',sfx:'Dramatic hit',char:'Robot',act:'Jump',anim:'Shake',over:'None',mo:'Shake'},
   love:{k:/food|biryani|chai|tea|coffee|crush|mom|dog|cat|pizza|sleep|bed|rasgulla|mishti|puchka/i,emoji:['🥹','❤️','😋'],lines:['my heart 🥹','pure happiness','this is the one','10/10 no notes'],gen:'Bokeh',c:['#ff8fab','#5a189a'],music:'Chill',sfx:'Ding',char:'Cat',act:'Bounce',anim:'Pop',over:'Hearts',mo:'Pulse'},
   funny:{k:/./,emoji:['😂','🤡','🙃'],lines:['and that was the plan','every single time','expectation vs reality','me pretending to understand'],gen:'Gradient',c:['#ffd166','#ef476f'],music:'Funny',sfx:'Boing',char:'Blob',act:'Bounce',anim:'Pop',over:'Stars',mo:'Zoom in'}};
-async function memeGo(){const d=(S.memeTxt||'').trim();if(!d){note('Type your meme idea first, for example: me waiting for salary');return}showOv('Making your meme…','',false);
+function clearGen(c){S.texts=S.texts.filter(t=>t.g!==c.id);S.audios=S.audios.filter(a=>{if(a.g===c.id){a.el.pause();return false}return true})}
+let toastT=0;function toast(m){let d=$('#toast');if(!d){d=document.createElement('div');d.id='toast';d.style.cssText='position:fixed;left:12px;right:12px;bottom:90px;z-index:8;background:#222631;border:1px solid #2d3240;color:#eef0f4;border-radius:12px;padding:10px 14px;font-size:13px;box-shadow:0 6px 24px #000a';document.body.append(d)}d.textContent=m;d.style.display='block';clearTimeout(toastT);toastT=setTimeout(()=>d.style.display='none',4500)}
+const SCN={Frog:/frog/i,Cat:/\bcats?\b|kitten/i,Dog:/\bdogs?\b|pupp/i,Robot:/robot/i,Ghost:/ghost/i,Star:/\bstars?\b/i,Blob:/blob|monster|creature/i},SNDS={Frog:'Frog croak',Cat:'Meow',Dog:'Woof'};
+const EMO={elephant:'🐘',lion:'🦁',tiger:'🐯',monkey:'🐒',bird:'🐦',parrot:'🦜',owl:'🦉',duck:'🦆',chicken:'🐔',hen:'🐔',fish:'🐟',shark:'🦈',whale:'🐳',dolphin:'🐬',rabbit:'🐰',bunny:'🐰',bear:'🐻',panda:'🐼',cow:'🐄',horse:'🐴',pig:'🐷',sheep:'🐑',goat:'🐐',mouse:'🐭',snake:'🐍',turtle:'🐢',butterfly:'🦋',bee:'🐝',unicorn:'🦄',dragon:'🐉',dinosaur:'🦖',alien:'👽',baby:'👶',chef:'🧑‍🍳',doctor:'🧑‍⚕️',teacher:'🧑‍🏫',king:'🤴',queen:'👸',superhero:'🦸',zombie:'🧟',car:'🚗',bus:'🚌',train:'🚆',plane:'✈️',rocket:'🚀',ufo:'🛸',ball:'⚽',cake:'🎂',pizza:'🍕',burger:'🍔',tea:'🍵',coffee:'☕',flower:'🌸',tree:'🌳',sun:'☀️',moon:'🌙',cloud:'☁️',heart:'❤️',money:'💰',phone:'📱',laptop:'💻',book:'📚',penguin:'🐧',fox:'🦊',wolf:'🐺',camel:'🐫',crab:'🦀',octopus:'🐙',snail:'🐌',ant:'🐜',spider:'🕷️',mosquito:'🦟'};
+const NOTLIVE=['ball','cake','pizza','burger','tea','coffee','flower','tree','sun','moon','cloud','heart','money','phone','laptop','book'];
+const emoIn=d=>Object.keys(EMO).filter(w=>new RegExp('\\b'+w+'(s|es)?\\b','i').test(d));
+function kwFx(d,c){const f=[[/heart|love|romant/i,'Hearts'],[/snow|winter|cold/i,'Snow'],[/party|celebrat|confetti|birthday/i,'Confetti rain'],[/sparkl|magic|glitter/i,'Sparkles'],[/bubble|underwater|sea|ocean/i,'Bubbles'],[/\bstars?\b|night/i,'Stars']].find(([r])=>r.test(d));if(f)c.fx=f[1];
+  if(/cartoon|toon/i.test(d))c.toon='Cartoon';if(/sketch|pencil/i.test(d))c.toon='Sketch';
+  const m=[[/shak|earthquake|angry/i,'Shake'],[/spin|rotat/i,'Rotate in'],[/float|fly|flying/i,'Float'],[/zoom out/i,'Zoom out'],[/zoom/i,'Zoom in'],[/\bpan\b/i,'Pan right'],[/pulse|beat/i,'Pulse'],[/flip/i,'3D flip'],[/tilt/i,'3D tilt'],[/swing/i,'3D swing']].find(([r])=>r.test(d));if(m)c.motion=m[1];
+  const g=[[/cube|\bbox\b/i,'Cube'],[/sphere|globe|planet/i,'Sphere'],[/tunnel|portal|warp/i,'Tunnel'],[/space|galaxy|universe/i,'Particles'],[/\b3d\b|three.?d/i,'Card']].find(([r])=>r.test(d));return g?g[1]:null}
+async function set3D(c,mode){if(!mode)return;try{await load3D();c.d3=mode}catch(e){toast('3D needs internet the first time.')}}
+const isScene=d=>emoIn(d).some(w=>!NOTLIVE.includes(w.toLowerCase()))||/^(make|create|show|turn|generate|draw)\b/i.test(d)||Object.values(SCN).some(r=>r.test(d));
+async function sceneGo(d){showOv('Building your scene…','',false);const h=[...d].reduce((a,ch)=>a+ch.charCodeAt(0),0);
+  const found=[...Object.keys(SCN).filter(k=>SCN[k].test(d)),...emoIn(d).map(w=>'Emoji:'+EMO[w.toLowerCase()])],main=found[0]||'Blob',photo=S.sel&&S.sel.kind!=='gen'?S.sel:null,sleep=/sleep|nap|snor|dream/i.test(d),talk=/counsel|talk|teach|advi[cs]|speak|lectur|motivat|explain|sing|preach/i.test(d);
+  if(!photo){const pal=/space|galax|night|star|universe/i.test(d)?['#7b2ff7','#0b0620']:/sea|ocean|water|fish|beach/i.test(d)?['#4cc9f0','#03045e']:/pond|frog|forest|jungle|garden|tree/i.test(d)?['#9be38f','#1d3b2a']:/fire|angry|lava|dragon/i.test(d)?['#ff7b00','#3d0000']:['#ff8fab','#5a189a'];addGen(sleep?'Particles':'Bokeh');Object.assign(S.sel,{c1:pal[0],c2:pal[1],end:6});S.sel.thumb=genThumb(S.sel)}else push();
+  const c=S.sel;clearGen(c);const st=startOf(S.clips.indexOf(c)),en=st+clen(c),made=[];
+  const act=sleep?'Sleep':talk?'Talk':/danc/i.test(d)?'Dance':/jump/i.test(d)?'Jump':/walk/i.test(d)?'Walk':/wav/i.test(d)?'Wave':'Bounce';
+  const lines=main==='Frog'?["Ribbit… it's okay to rest.","You're doing great, little one.","Breathe in… ribbit… breathe out."]:["It's okay. Breathe.","You are doing great.","One step at a time."];
+  const say=talk?(sleep?'Zzz… you are doing great… zzz':lines[h%lines.length]):'';
+  const put=(type,o)=>{const em=type.startsWith('Emoji:');addChar(em?'Emoji':type);Object.assign(S.selText,{start:st,end:en,g:c.id},em?{emo:type.slice(6)}:{},o)};const nameOf=x=>x.startsWith('Emoji:')?x.slice(6):x.toLowerCase();
+  put(main,{act,say,lip:talk&&!sleep,x:.5,y:.6,size:90});made.push((sleep?'sleeping ':talk?'talking ':'')+nameOf(main));
+  const crowd=/other|group|crowd|friends|class|audience|team|family/i.test(d)||(!main.startsWith('Emoji:')&&new RegExp(main.toLowerCase()+'s\\b','i').test(d)),other=found[1]||main;
+  if(crowd||found[1]){const spots=[[.18,.86],[.82,.86],[.5,.92]].slice(0,crowd?3:1);spots.forEach(([x,y],i)=>put(other,{act:['Bounce','Wave','Jump'][i],x,y,size:50,say:''}));made.push(spots.length+' × '+nameOf(other))}
+  const cap=d.replace(/^(please\s+)?(make|create|show|turn|generate|draw)\s+(this|it|me|the photo|my photo)?\s*(into\s+|as\s+)?(a|an)?\s*/i,'').replace(/[.,]*\s*(and\s+)?(make|add|with|give)\s+(the\s+|a\s+)?sound.*$/i,'').replace(/\.+$/,'').trim();
+  if(cap)S.texts.push({id:uid++,g:c.id,text:cap.charAt(0).toUpperCase()+cap.slice(1),font:'Bold',color:'#ffffff',stroke:true,strokeC:'#000000',bg:false,bgc:'#000000',d3:false,d3c:'#7a1f1f',size:64,anim:'Pop',x:.5,y:.1,start:st,end:en});
+  if(photo)photo.motion='Zoom in';const m3=kwFx(d,c);await set3D(c,m3);if(m3)made.push('3D '+m3);
+  const snd=[];try{if(found.some(f=>SNDS[f])){const nm=SNDS[main]||SNDS[found.find(f=>SNDS[f])];if(!nm)throw 0;for(const at of[st+.4,st+Math.max(1.5,(en-st)/2)]){if(at<en){const a=await addSfx(nm,at);a.g=c.id;S.audios.push(a)}}snd.push(nm)}
+    if(sleep){const a=await addSfx('Snore',Math.min(st+1.2,en-.5));a.g=c.id;a.vol=.7;S.audios.push(a);snd.push('Snore')}
+    if(S.memeMusic!==false){const style=sleep?'Chill':'Lo-fi',a=await addMusic(style,st,Math.max(6,Math.ceil(en-st)+1),.4);Object.assign(a,{loop:false,fadeOut:false,duck:true,g:c.id});a.el.loop=false;S.audios.push(a);snd.push(style+' music')}}catch(e){toast('Sound could not be made: '+e.message)}
+  hideOv();S.t=st;S.selText=null;S.tab='create';renderAll();setTimeout(play,80);
+  toast('✅ Added '+made.join(' + ')+(snd.length?'. 🎵 Sound: '+snd.join(', ')+' (see Audio tab)':'')+'. Drag characters to move them.')}
+let AIc={prov:'gemini',key:'',model:''};try{Object.assign(AIc,JSON.parse(localStorage.getItem('chal_ai')||'{}'))}catch(e){}
+function saveAI(){try{localStorage.setItem('chal_ai',JSON.stringify(AIc))}catch(e){}}
+async function aiPlan(d,photo){const J=JSON.stringify,ask=`You design short animated video scenes for a phone video editor. Reply with ONLY JSON in this shape:
+{"duration":3-12,"background":{"style":${J(GENS)},"c1":"#hex","c2":"#hex"} or null,"photo":{"motion":${J(MOTIONS)},"fx":${J(['None',...OVERLAYS])},"toon":["None","Cartoon","Sketch"],"d3":${J(D3)}} or null,
+"characters":[{"type":${J([...CHARS,'Emoji','Custom'])},"emoji":"one emoji when type is Emoji","svg":"when type is Custom: a simple ORIGINAL flat cartoon SVG, viewBox 0 0 200 200, transparent background, no text, under 2500 characters","act":${J(CACT)},"x":0-1,"y":0-1,"size":40-140,"color":"#hex","say":"short speech bubble text or empty"}],
+"texts":[{"text":"short text","style":"meme|caption|title","y":0-1,"delay":seconds,"anim":${J(TANIMS)}}],"sounds":[{"name":${J(SFX)},"at":seconds}],"music":${J([...Object.keys(STY),null])}}
+Rules: pick values only from the lists shown. At most 6 characters, 4 texts, 4 sounds. Prefer built-in types; use Emoji for common things and Custom only when nothing fits. Never draw real people, brands or existing copyrighted characters; invent original ones. For memes write short, funny, kind text. ${photo?'The user selected a photo: it is the background, so set background to null and put effects in "photo".':'No photo is selected: set photo to null and choose a background (it may also get "photo" effects for motion/3D).'}
+User request: ${d}`;
+  let txt;if(AIc.prov==='claude'){const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':AIc.key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:J({model:AIc.model||'claude-haiku-5-5',max_tokens:4000,messages:[{role:'user',content:ask}]})});const j=await r.json();if(!r.ok)throw Error((j.error&&j.error.message)||r.status);txt=j.content.map(x=>x.text||'').join('')}
+  else{const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${AIc.model||'gemini-2.5-flash'}:generateContent`,{method:'POST',headers:{'content-type':'application/json','x-goog-api-key':AIc.key},body:J({contents:[{parts:[{text:ask}]}],generationConfig:{responseMimeType:'application/json'}})});const j=await r.json();if(!r.ok)throw Error((j.error&&j.error.message)||r.status);txt=j.candidates[0].content.parts.map(x=>x.text||'').join('')}
+  return JSON.parse(txt.slice(txt.indexOf('{'),txt.lastIndexOf('}')+1))}
+async function applyPlan(p,photo){const pick=(v,list,def)=>list.includes(v)?v:def,hex=v=>/^#[0-9a-f]{6}$/i.test(v||'')?v:null;
+  if(!photo){const b=p.background||{};addGen(pick(b.style,GENS,'Gradient'));Object.assign(S.sel,{c1:hex(b.c1)||'#ff5a5f',c2:hex(b.c2)||'#3b2a8a',end:clamp(+p.duration||5,2,15)});S.sel.thumb=genThumb(S.sel)}else push();
+  const c=S.sel;clearGen(c);const st=startOf(S.clips.indexOf(c)),en=st+clen(c),ph=p.photo||{};
+  c.motion=pick(ph.motion,MOTIONS,photo?'Zoom in':c.motion);c.fx=pick(ph.fx,['None',...OVERLAYS],'None');c.toon=pick(ph.toon,['None','Cartoon','Sketch'],'None');if(ph.d3&&ph.d3!=='None')await set3D(c,pick(ph.d3,D3,null));
+  for(const ch of(p.characters||[]).slice(0,6)){const type=pick(ch.type,[...CHARS,'Emoji','Custom'],'Blob');if(type==='Custom'&&!/^<svg[\s>]/i.test((ch.svg||'').trim()))continue;addChar(type);
+    Object.assign(S.selText,{g:c.id,start:st,end:en,act:pick(ch.act,CACT,'Bounce'),x:clamp(+ch.x||.5,0,1),y:clamp(+ch.y||.6,0,1),size:clamp(+ch.size||90,30,160),say:(ch.say||'').slice(0,60)});
+    if(hex(ch.color))S.selText.color=ch.color;if(type==='Emoji')S.selText.emo=ch.emoji||'🙂';if(type==='Custom')S.selText.svg=ch.svg.slice(0,20000)}
+  for(const tx of(p.texts||[]).slice(0,4)){if(!tx.text)continue;const sty=tx.style==='caption'?{font:'Sans',color:'#000000',stroke:false,bg:true,bgc:'#ffffff',size:60}:tx.style==='title'?{font:'Bold',color:'#ffd166',stroke:false,bg:false,d3:true,d3c:'#b5179e',size:120}:{font:'Bold',color:'#ffffff',stroke:true,size:90};
+    S.texts.push({id:uid++,g:c.id,strokeC:'#000000',bg:false,bgc:'#000000',d3:false,d3c:'#7a1f1f',...sty,text:String(tx.text).slice(0,90),anim:pick(tx.anim,TANIMS,'Pop'),x:.5,y:clamp(+tx.y||.15,0,1),start:Math.min(en-.3,st+clamp(+tx.delay||0,0,10)),end:en})}
+  const snd=[];try{for(const so of(p.sounds||[]).slice(0,4)){if(!SFX.includes(so.name))continue;const a=await addSfx(so.name,Math.min(en-.3,st+clamp(+so.at||0,0,30)));a.g=c.id;S.audios.push(a);snd.push(so.name)}
+    if(p.music&&STY[p.music]&&S.memeMusic!==false){const a=await addMusic(p.music,st,Math.max(6,Math.ceil(en-st)+1),.45);Object.assign(a,{loop:false,fadeOut:false,duck:true,g:c.id});a.el.loop=false;S.audios.push(a);snd.push(p.music+' music')}}catch(e){}
+  hideOv();S.t=st;S.selText=null;S.tab='create';renderAll();setTimeout(play,80);toast('🤖 AI built it: '+((p.characters||[]).length)+' character(s), '+((p.texts||[]).length)+' text(s)'+(snd.length?', 🎵 '+snd.join(', ')+' (Audio tab)':'')+'.')}
+async function memeGo(){const d=(S.memeTxt||'').trim();if(d&&AIc.key){showOv('🤖 AI is designing it…','',false);const photo=S.sel&&S.sel.kind!=='gen'?S.sel:null;try{return await applyPlan(await aiPlan(d,photo),photo)}catch(e){hideOv();toast('AI helper failed ('+e.message+'). Used the built-in builder instead.')}}
+  if(isScene((S.memeTxt||'').trim()))return sceneGo(S.memeTxt.trim());if(!d){note('Type your meme idea first, for example: me waiting for salary');return}showOv('Making your meme…','',false);
   const mood=Object.values(MOODS).find(m=>m.k.test(d)),h=[...d].reduce((a,ch)=>a+ch.charCodeAt(0),0);
   let top=d,bot=mood.lines[h%mood.lines.length];const sp=d.split(/\s+vs\.?\s+|\n|\s*\|\s*/i).filter(x=>x.trim());if(sp.length>1){top=sp[0];bot=sp.slice(1).join(' ')}
   const photo=S.sel&&S.sel.kind!=='gen'?S.sel:null;
   if(!photo){addGen(mood.gen);Object.assign(S.sel,{c1:mood.c[0],c2:mood.c[1],end:5});S.sel.thumb=genThumb(S.sel)}else push();
-  const c=S.sel,st=startOf(S.clips.indexOf(c)),en=st+clen(c),late=Math.min(st+.8,en-.3);
-  const base={font:'Bold',color:'#ffffff',stroke:true,strokeC:'#000000',bg:false,bgc:'#000000',d3:false,d3c:'#7a1f1f',x:.5,end:en};
+  const c=S.sel;clearGen(c);const st=startOf(S.clips.indexOf(c)),en=st+clen(c),late=Math.min(st+.8,en-.3);
+  const base={g:c.id,font:'Bold',color:'#ffffff',stroke:true,strokeC:'#000000',bg:false,bgc:'#000000',d3:false,d3c:'#7a1f1f',x:.5,end:en};
   const add=o=>S.texts.push({id:uid++,...base,...o});const wrap=s2=>{if(s2.length<=18)return s2;const w=s2.split(' '),m=Math.ceil(w.length/2);return w.length>1?w.slice(0,m).join(' ')+'\n'+w.slice(m).join(' '):s2};
   add({text:wrap(top.toUpperCase()),size:top.length>28?72:90,y:.13,anim:'Pop',start:st});
   add({text:wrap(bot.toUpperCase()),size:bot.length>28?72:90,y:.84,anim:mood.anim,start:late});
   add({text:mood.emoji[h%mood.emoji.length],stroke:false,size:photo?120:190,x:photo?.82:.5,y:photo?.3:.42,anim:'Pop',start:Math.min(st+1,en-.3)});
-  if(photo){photo.motion=mood.mo;photo.fx=mood.over}else{addChar(mood.char);Object.assign(S.selText,{act:mood.act,y:.66,size:80,start:st,end:en})}
-  if(S.memeMusic!==false){try{const a=await addMusic(mood.music,st,Math.max(6,Math.ceil(en-st)+1),.5);a.loop=false;a.el.loop=false;a.fadeOut=false;a.duck=false;S.audios.push(a);S.audios.push(await addSfx(mood.sfx,late))}catch(e){}}
-  hideOv();S.t=st;S.selText=null;S.tab='create';setTimeout(play,80)}
+  {const m3=kwFx(d,c);await set3D(c,m3)}if(photo){if(!/zoom|shak|spin|flip|tilt|swing|float|pulse/i.test(d))photo.motion=mood.mo;if(!/heart|snow|party|sparkl|bubble|star|night/i.test(d))photo.fx=mood.over}else{addChar(mood.char);Object.assign(S.selText,{act:mood.act,y:.66,size:80,start:st,end:en,g:c.id})}
+  let snd='';if(S.memeMusic!==false){try{const a=await addMusic(mood.music,st,Math.max(6,Math.ceil(en-st)+1),.5);Object.assign(a,{loop:false,fadeOut:false,duck:false,g:c.id});a.el.loop=false;S.audios.push(a);const b=await addSfx(mood.sfx,late);b.g=c.id;S.audios.push(b);snd=' 🎵 '+mood.music+' music + '+mood.sfx+' (see Audio tab).'}catch(e){snd=' Music could not be made: '+e.message}}
+  hideOv();S.t=st;S.selText=null;S.tab='create';renderAll();setTimeout(play,80);toast('✅ Meme made.'+snd+' Tap the button again to replace it.')}
 
 /* ===== real 3D (WebGL via three.js, loaded on first use) ===== */
 const D3=['None','Card','Cube','Sphere','Tunnel','Particles'];let G=null;
@@ -525,7 +596,7 @@ function pAudio(){const T=(total()||1).toFixed(2);let h=`<div class="chips">${B(
 function pFormat(){return`<h3>Aspect ratio</h3><div class="chips">${[['9:16','9:16 Reels / Shorts'],['1:1','1:1 Square'],['4:5','4:5 Post'],['16:9','16:9 YouTube']].map(([k,l])=>chip(l,'ratio',k,S.ratio===k)).join('')}</div>`+
   `<h3>Background (for “Fit whole” clips)</h3><div class="chips">${chip('Blurred video','bgMode','blur',S.bgMode==='blur')}${chip('Solid colour','bgMode','color',S.bgMode==='color')}<input type="color" data-o="S" data-k="bg" value="${S.bg}"></div>`}
 function pExport(){const T=total();return`<h3>Quality</h3><div class="chips">${chip('720p · faster','q','720',S.q==='720')}${chip('1080p · sharper','q','1080',S.q==='1080')}</div><p class="hint">Length ${fmt(T)} · ${W}×${H}. Export plays your video once in real time, so it takes about ${Math.ceil(T)} seconds. Keep the screen on. Then tap “Save to phone” to put it in your gallery, or Share to send it to WhatsApp or Instagram.</p>${B('⬇️ Export video','export','','pri')} ${B('🎵 Download MP3 (sound only)','mp3')}`}
-function pCreate(){const c=S.sel;let h=`<h3>😂 Meme from your idea</h3><textarea data-o="S" data-k="memeTxt" rows="2" placeholder="e.g. me waiting for salary | salary arrives and leaves in 1 day">${esc(S.memeTxt||'')}</textarea>
+function pCreate(){const c=S.sel;let h=`<h3>😂 Meme or scene from your idea</h3><textarea data-o="S" data-k="memeTxt" rows="2" placeholder="Meme: me waiting for salary | salary gone in 1 day&#10;Scene: make a sleeping frog counseling other frogs, add frog sound">${esc(S.memeTxt||'')}</textarea>
   <div class="chips" style="margin-top:6px">${B('✨ Make my meme','memeGo','','pri')}<span class="hint">with music</span><input type="checkbox" data-o="S" data-k="memeMusic" ${S.memeMusic!==false?'checked':''}></div>
   <p class="hint">${c&&c.kind!=='gen'?'It uses your selected '+(c.kind==='image'?'photo':'video')+'.':'No photo selected, so it makes an animated meme with a cartoon character.'} Put | between top and bottom text, or let the app write the punchline.</p>`;
   if(c&&c.kind==='gen')h+=`<h3>Selected animated clip</h3><div class="chips">${GENS.map(g=>chip(g,'genStyle',g,c.gen===g)).join('')}</div><div class="row"><span>Colours</span><input type="color" data-o="clip" data-k="c1" value="${c.c1}"><input type="color" data-o="clip" data-k="c2" value="${c.c2}"></div>`+rng('Duration','clip','end',.5,30,.5,c.end,'s');
@@ -540,6 +611,10 @@ function pCreate(){const c=S.sel;let h=`<h3>😂 Meme from your idea</h3><textar
   h+=`<h3>🙂 Animated characters</h3><div class="chips">${CHARS.map(x=>B(x,'addChar',x)).join('')}</div><p class="hint">Original cartoon characters that bounce, jump, dance, wave, walk or talk.</p>`;
   h+=`<h3>🎹 Music & sound effects</h3><div class="chips">${Object.keys(STY).map(x=>B('🎵 '+x,'genMusic',x)).join('')}</div><div class="chips">${SFX.map(x=>B(x,'sfx',x)).join('')}</div>`;
   h+=`<h3>➕ Add a new animated clip</h3><div class="chips">${GENS.map(g=>B(g==='Synthwave 3D'?'3D synthwave':g,'addGen',g)).join('')}</div>`;
+  h+=`<h3>🤖 AI helper: understands anything (optional)</h3><div class="chips">${chip('Gemini (free key)','aiProv','gemini',AIc.prov==='gemini')}${chip('Claude','aiProv','claude',AIc.prov==='claude')}</div>
+    <div class="row"><span>API key</span><input type="password" data-o="AI" data-k="key" value="${esc(AIc.key)}" placeholder="paste key" style="flex:1;background:#222631;color:#eef0f4;border:1px solid #2d3240;border-radius:8px;padding:8px"></div>
+    <div class="row"><span>Model</span><input type="text" data-o="AI" data-k="model" value="${esc(AIc.model)}" placeholder="${AIc.prov==='claude'?'claude-haiku-5-5':'gemini-2.5-flash'}" style="flex:1;background:#222631;color:#eef0f4;border:1px solid #2d3240;border-radius:8px;padding:8px"></div>
+    <p class="hint">${AIc.key?'✅ AI is on. “Make my meme” now understands any description and can draw new characters.':'Without a key, the app understands 60+ animals and things, actions, effects and 3D words.'} Free Gemini key: aistudio.google.com → Get API key. Your key stays on this phone only.</p>`;
   return h+`<h3>🔁 Between all clips</h3><div class="chips">${B('3D cube transitions','tr3d','3D cube')}${B('3D flip transitions','tr3d','3D flip')}</div>`}
 const PANELS={create:pCreate,media:pMedia,edit:pEdit,motion:pMotion,fx:pFx,text:pText,audio:pAudio,format:pFormat,export:pExport};
 const TABS=[['media','🎞️','Media'],['edit','✂️','Edit'],['motion','✨','Motion'],['fx','🎨','Effects'],['text','🔤','Text'],['audio','🎵','Audio'],['create','🪄','Create'],['export','⬇️','Export']];
@@ -548,7 +623,7 @@ tabs.onclick=e=>{const b=e.target.closest('button');if(b){S.tab=b.dataset.tab;re
 let lastTab='';
 function renderPanel(){tabs.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.tab===S.tab));const st=panel.scrollTop;panel.innerHTML=PANELS[S.tab]();if(lastTab===S.tab)panel.scrollTop=st;lastTab=S.tab}
 function renderTL(){tl.innerHTML=S.clips.map((c,i)=>`<div class="clip${c===S.sel?' sel':''}" data-i="${i}" style="width:${Math.round(clamp(clen(c)*22,56,240))}px;background-image:url(${c.thumb})"><span>${c.kind==='image'?'🖼 ':c.kind==='gen'?'🪄 ':''}${fmt(clen(c))}${c.speed!=1?' · '+(+c.speed).toFixed(2).replace(/\.?0+$/,'')+'×':''}</span>${i<S.clips.length-1&&c.tr!=='None'?'<em>⋈</em>':''}</div>`).join('')+`<button class="addc" data-add>+</button>`;
-  $('#txtrow').innerHTML=S.texts.map(t=>`<div class="tchip${t===S.selText?' sel':''}" data-t="${t.id}">${t.kind==='char'?'🙂 '+t.char:'T · '+esc(t.text)}</div>`).join('')+S.audios.map(a=>`<div class="tchip au" data-a="1">${a.kind==='voice'?'🎙':'♪'} ${esc(a.name)}</div>`).join('')}
+  $('#txtrow').innerHTML=S.audios.map(a=>`<div class="tchip au" data-a="1">${a.kind==='voice'?'🎙':'🎵'} ${esc(a.name)}</div>`).join('')+S.texts.map(t=>`<div class="tchip${t===S.selText?' sel':''}" data-t="${t.id}">${t.kind==='char'?(t.char==='Emoji'?t.emo:'🙂')+' '+(t.char==='Emoji'?'':t.char):'T · '+esc(t.text)}</div>`).join('')}
 function renderAll(){renderTL();renderPanel();if(!S.playing)showFrame(S.t);else updTime();autosave()}
 
 /* ---------- actions ---------- */
@@ -602,6 +677,7 @@ const A={
   tpl(v){if(v==='intro'){addGen('Gradient');const g=S.sel;g.c1='#7b2ff7';g.c2='#f107a3';g.thumb=genThumb(g);A.d3title()}
     if(v==='photo3d'&&S.sel){push();S.sel.motion='3D swing';S.clips.forEach(c=>c.tr='3D cube');S.t=startOf(S.clips.indexOf(S.sel));setTimeout(play,50)}
     if(v==='party'){addGen('Confetti');addChar('Blob');S.selText.act='Dance';addText('🎉');const i0=S.clips.indexOf(S.sel);S.selText.start=startOf(i0);S.selText.end=S.selText.start+clen(S.sel)}},
+  aiProv:v=>{AIc.prov=v;AIc.model='';saveAI()},
   memeGo,addChar:v=>addChar(v),charType:v=>{push();S.selText.char=v},charAct:v=>{push();S.selText.act=v;S.t=S.selText.start;play()},charMenu(){S.selText=null;S.tab='create'},
   toon:v=>{push();S.sel.toon=v;S.t=startOf(S.clips.indexOf(S.sel));play()},
   async d3(v){if(!S.sel)return;if(v!=='None'){showOv('Loading 3D…','',false);try{await load3D()}catch(e){note('3D needs internet the first time. Please connect and try again.');return}hideOv()}push();S.sel.d3=v;S.t=startOf(S.clips.indexOf(S.sel));play()},
@@ -620,7 +696,7 @@ const A={
 };
 const KEEP_PLAY=['voice','mix','viz','part'];
 panel.addEventListener('click',e=>{const t=e.target.closest('[data-act]');if(!t)return;const f=A[t.dataset.act];if(!f)return;if(S.playing&&!KEEP_PLAY.includes(t.dataset.act))pause();Promise.resolve(f(t.dataset.v)).then(renderAll)});
-function obj(o){if(o==='clip')return S.sel;if(o==='text')return S.selText;if(o==='S')return S;if(o&&o.startsWith('au'))return S.audios[+o.slice(2)]}
+function obj(o){if(o==='AI')return AIc;if(o==='clip')return S.sel;if(o==='text')return S.selText;if(o==='S')return S;if(o&&o.startsWith('au'))return S.audios[+o.slice(2)]}
 panel.addEventListener('input',e=>{const el=e.target,k=el.dataset.k,on=el.dataset.o;if(!k)return;const o=obj(on);if(!o)return;mark();
   o[k]=el.type==='checkbox'?el.checked:(el.type==='range'?+el.value:el.value);
   if(on==='clip'&&o.kind==='video'){if(k==='start'&&o.start>o.end-.1){o.start=Math.max(0,o.end-.1);el.value=o.start}if(k==='end'&&o.end<o.start+.1){o.end=o.start+.1;el.value=o.end}}
@@ -630,6 +706,7 @@ panel.addEventListener('input',e=>{const el=e.target,k=el.dataset.k,on=el.datase
   const out=el.nextElementSibling;if(out&&out.tagName==='OUTPUT')out.textContent=F[el.dataset.f](o[k]);
   if(on==='clip'&&['start','end','speed'].includes(k)){if(S.playing)pause();renderTL();const i=S.clips.indexOf(o);S.t=k==='end'?startOf(i)+clen(o)-.05:startOf(i)}
   if(on==='text'&&(k==='start'||k==='end')){if(S.playing)pause();S.t=o[k]}
+  if(on==='AI'){saveAI();return}
   if(on==='clip'&&(k==='c1'||k==='c2')){o.thumb=genThumb(o);renderTL()}
   if(on==='text'&&k==='text')renderTL();
   if(!S.playing)showFrame(S.t);else updTime();autosave()});
